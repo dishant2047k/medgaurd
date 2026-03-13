@@ -1,0 +1,1839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MedGuard AI — Setup Guide</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Instrument+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg: #0a0e17;
+  --surface: #111827;
+  --surface2: #1a2235;
+  --border: #1e2d45;
+  --accent: #3b82f6;
+  --accent2: #60a5fa;
+  --green: #10b981;
+  --yellow: #f59e0b;
+  --red: #ef4444;
+  --purple: #8b5cf6;
+  --cyan: #06b6d4;
+  --text: #f0f6ff;
+  --text-dim: #64748b;
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Instrument Sans', sans-serif;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ── Sidebar ─────────────────────────── */
+.sidebar {
+  width: 280px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.sidebar-logo {
+  padding: 24px 20px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-logo h1 {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--accent2);
+  letter-spacing: 0.05em;
+}
+
+.sidebar-logo p {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 3px;
+}
+
+.progress-bar-wrap {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.progress-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.progress-bar {
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--cyan));
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+.nav-section {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.nav-section-title {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  padding: 4px 20px 8px;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 20px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-dim);
+  border-left: 3px solid transparent;
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.nav-link:hover { color: var(--text); background: rgba(59,130,246,0.06); }
+.nav-link.active { color: var(--accent2); border-left-color: var(--accent); background: rgba(59,130,246,0.08); }
+
+.nav-num {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 10px;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.nav-link.active .nav-num { background: var(--accent); color: #fff; }
+.nav-link.done .nav-num { background: var(--green); color: #fff; }
+.nav-link.done .nav-num::after { content: '✓'; }
+.nav-link.done .nav-num span { display: none; }
+
+/* ── Main ─────────────────────────────── */
+.main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 48px;
+  max-width: 900px;
+}
+
+.main::-webkit-scrollbar { width: 6px; }
+.main::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── Section ─────────────────────────── */
+.section { display: none; }
+.section.active { display: block; }
+
+.section-badge {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.section-title {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: 12px;
+}
+
+.section-desc {
+  font-size: 15px;
+  color: var(--text-dim);
+  line-height: 1.7;
+  margin-bottom: 36px;
+  max-width: 640px;
+}
+
+/* ── Steps ───────────────────────────── */
+.steps { display: flex; flex-direction: column; gap: 20px; }
+
+.step {
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.step:hover { border-color: var(--border); }
+
+.step-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px 24px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.step-num {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  background: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+  color: #fff;
+}
+
+.step-num.green { background: var(--green); }
+.step-num.yellow { background: var(--yellow); color: #000; }
+.step-num.purple { background: var(--purple); }
+.step-num.cyan { background: var(--cyan); color: #000; }
+
+.step-info { flex: 1; }
+
+.step-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.step-subtitle {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.step-expand {
+  font-size: 18px;
+  color: var(--text-dim);
+  transition: transform 0.2s;
+  margin-top: 4px;
+}
+
+.step.open .step-expand { transform: rotate(180deg); }
+
+.step-body {
+  display: none;
+  padding: 0 24px 24px;
+  border-top: 1px solid var(--border);
+}
+
+.step.open .step-body { display: block; }
+
+/* ── Code blocks ─────────────────────── */
+.code-block {
+  position: relative;
+  margin: 16px 0;
+  border-radius: 10px;
+  background: #050810;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.code-lang {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lang-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+}
+
+pre {
+  padding: 18px 20px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.7;
+  overflow-x: auto;
+  color: #a8c4e0;
+}
+
+pre::-webkit-scrollbar { height: 4px; }
+pre::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.copy-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 4px 12px;
+  border-radius: 5px;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: var(--mono);
+  transition: all 0.15s;
+}
+
+.copy-btn:hover { border-color: var(--accent); color: var(--accent2); }
+.copy-btn.copied { border-color: var(--green); color: var(--green); }
+
+/* Syntax highlight */
+.kw { color: #c792ea; }
+.fn { color: #82aaff; }
+.str { color: #c3e88d; }
+.cm { color: #546e7a; font-style: italic; }
+.num { color: #f78c6c; }
+.var { color: #eeffff; }
+
+/* ── Alerts / Notes ──────────────────── */
+.note {
+  padding: 14px 18px;
+  border-radius: 8px;
+  margin: 14px 0;
+  font-size: 13px;
+  line-height: 1.6;
+  display: flex;
+  gap: 12px;
+}
+
+.note-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+.note.info { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.25); }
+.note.warn { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.25); color: #fde68a; }
+.note.success { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.25); color: #6ee7b7; }
+.note.error { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: #fca5a5; }
+
+/* ── Tables ──────────────────────────── */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 13px;
+}
+
+.data-table th {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.data-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(30,45,69,0.5);
+  vertical-align: top;
+}
+
+.data-table tr:last-child td { border-bottom: none; }
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 10px;
+}
+
+.badge.green { background: rgba(16,185,129,0.15); color: var(--green); border: 1px solid rgba(16,185,129,0.3); }
+.badge.blue  { background: rgba(59,130,246,0.15); color: var(--accent2); border: 1px solid rgba(59,130,246,0.3); }
+.badge.purple{ background: rgba(139,92,246,0.15); color: #a78bfa; border: 1px solid rgba(139,92,246,0.3); }
+.badge.yellow{ background: rgba(245,158,11,0.15); color: var(--yellow); border: 1px solid rgba(245,158,11,0.3); }
+
+/* ── DB schema viz ───────────────────── */
+.schema-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+  margin: 20px 0;
+}
+
+.schema-card {
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  overflow: hidden;
+}
+
+.schema-header {
+  padding: 10px 14px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.schema-header.blue   { background: rgba(59,130,246,0.15); color: var(--accent2); }
+.schema-header.green  { background: rgba(16,185,129,0.15); color: var(--green); }
+.schema-header.purple { background: rgba(139,92,246,0.15); color: #a78bfa; }
+.schema-header.yellow { background: rgba(245,158,11,0.15); color: var(--yellow); }
+.schema-header.cyan   { background: rgba(6,182,212,0.15); color: var(--cyan); }
+.schema-header.red    { background: rgba(239,68,68,0.15); color: #f87171; }
+
+.schema-fields { padding: 10px 14px; }
+
+.schema-field {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  font-size: 11px;
+  border-bottom: 1px dashed rgba(30,45,69,0.8);
+}
+
+.schema-field:last-child { border-bottom: none; }
+
+.field-name { font-family: var(--mono); color: var(--text); }
+.field-type { color: var(--text-dim); font-family: var(--mono); font-size: 10px; }
+
+/* ── Navigation buttons ──────────────── */
+.nav-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.btn {
+  padding: 11px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s;
+  font-family: var(--sans);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: #2563eb; }
+.btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { border-color: var(--accent2); }
+
+/* ── Live test panel ─────────────────── */
+.test-panel {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  margin: 16px 0;
+}
+
+.test-panel h4 {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 14px;
+  color: var(--accent2);
+  font-family: var(--mono);
+}
+
+.test-input-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.test-input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 9px 14px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  outline: none;
+}
+
+.test-input:focus { border-color: var(--accent); }
+
+.test-btn {
+  padding: 9px 18px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: var(--mono);
+  white-space: nowrap;
+}
+
+.test-output {
+  background: #050810;
+  border-radius: 6px;
+  padding: 14px;
+  font-family: var(--mono);
+  font-size: 11px;
+  min-height: 80px;
+  color: var(--green);
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+.checklist { list-style: none; margin: 14px 0; }
+.checklist li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+  font-size: 14px;
+  border-bottom: 1px solid rgba(30,45,69,0.5);
+  cursor: pointer;
+}
+
+.checklist li:last-child { border-bottom: none; }
+
+.check-box {
+  width: 20px; height: 20px;
+  border-radius: 5px;
+  border: 2px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  margin-top: 1px;
+}
+
+.checklist li.checked .check-box {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+  font-size: 12px;
+}
+
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <h1>⬡ MEDGUARD AI</h1>
+    <p>Step-by-step Setup Guide</p>
+  </div>
+
+  <div class="progress-bar-wrap">
+    <div class="progress-label">
+      <span>Setup Progress</span>
+      <span id="progressPct">0%</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill" id="progressFill" style="width:0%"></div>
+    </div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-section-title">Getting Started</div>
+    <div class="nav-link active" onclick="goTo(0)" id="nav0">
+      <div class="nav-num"><span>1</span></div>
+      Prerequisites
+    </div>
+    <div class="nav-link" onclick="goTo(1)" id="nav1">
+      <div class="nav-num"><span>2</span></div>
+      Install Dependencies
+    </div>
+    <div class="nav-link" onclick="goTo(2)" id="nav2">
+      <div class="nav-num"><span>3</span></div>
+      Environment Config
+    </div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-section-title">Core Setup</div>
+    <div class="nav-link" onclick="goTo(3)" id="nav3">
+      <div class="nav-num"><span>4</span></div>
+      Database Memory
+    </div>
+    <div class="nav-link" onclick="goTo(4)" id="nav4">
+      <div class="nav-num"><span>5</span></div>
+      Docker Services
+    </div>
+    <div class="nav-link" onclick="goTo(5)" id="nav5">
+      <div class="nav-num"><span>6</span></div>
+      ML Models
+    </div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-section-title">Running the System</div>
+    <div class="nav-link" onclick="goTo(6)" id="nav6">
+      <div class="nav-num"><span>7</span></div>
+      Start the API
+    </div>
+    <div class="nav-link" onclick="goTo(7)" id="nav7">
+      <div class="nav-num"><span>8</span></div>
+      Open Dashboard
+    </div>
+    <div class="nav-link" onclick="goTo(8)" id="nav8">
+      <div class="nav-num"><span>9</span></div>
+      Test Camera
+    </div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-section-title">Advanced</div>
+    <div class="nav-link" onclick="goTo(9)" id="nav9">
+      <div class="nav-num"><span>10</span></div>
+      LLM + Agent Setup
+    </div>
+    <div class="nav-link" onclick="goTo(10)" id="nav10">
+      <div class="nav-num"><span>11</span></div>
+      Database Memory API
+    </div>
+    <div class="nav-link" onclick="goTo(11)" id="nav11">
+      <div class="nav-num"><span>12</span></div>
+      Train Your Model
+    </div>
+    <div class="nav-link" onclick="goTo(12)" id="nav12">
+      <div class="nav-num"><span>13</span></div>
+      Troubleshooting
+    </div>
+  </div>
+</nav>
+
+<!-- Main Content -->
+<div class="main" id="mainContent">
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SECTION 0 — Prerequisites                              -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section active" id="sec0">
+  <div class="section-badge">Step 1 of 13</div>
+  <h2 class="section-title">Prerequisites</h2>
+  <p class="section-desc">Check that your system has everything needed before we start. MedGuard AI runs on Windows, macOS, and Linux.</p>
+
+  <ul class="checklist" id="prereqList">
+    <li onclick="toggleCheck(this)"><div class="check-box">✓</div><div><strong>Python 3.10+</strong> — Check: <code style="background:rgba(255,255,255,0.05);padding:1px 6px;border-radius:3px;font-family:var(--mono)">python3 --version</code></div></li>
+    <li onclick="toggleCheck(this)"><div class="check-box"></div><div><strong>Docker + Docker Compose</strong> — Check: <code style="background:rgba(255,255,255,0.05);padding:1px 6px;border-radius:3px;font-family:var(--mono)">docker --version</code></div></li>
+    <li onclick="toggleCheck(this)"><div class="check-box"></div><div><strong>Git</strong> — Check: <code style="background:rgba(255,255,255,0.05);padding:1px 6px;border-radius:3px;font-family:var(--mono)">git --version</code></div></li>
+    <li onclick="toggleCheck(this)"><div class="check-box"></div><div><strong>8 GB RAM minimum</strong> (16 GB recommended for full stack)</div></li>
+    <li onclick="toggleCheck(this)"><div class="check-box"></div><div><strong>Webcam or CCTV</strong> connected (for live detection)</div></li>
+    <li onclick="toggleCheck(this)"><div class="check-box"></div><div><strong>15 GB free disk space</strong> (for Docker images + ML models)</div></li>
+  </ul>
+
+  <div class="note info"><div class="note-icon">💡</div><div><strong>No GPU required.</strong> All models run on CPU. A GPU (NVIDIA CUDA) will speed up inference 10-30×, but is completely optional.</div></div>
+
+  <table class="data-table">
+    <tr><th>OS</th><th>Status</th><th>Notes</th></tr>
+    <tr><td>Ubuntu 20.04 / 22.04</td><td><span class="badge green">✓ Recommended</span></td><td>Best performance</td></tr>
+    <tr><td>macOS 12+</td><td><span class="badge green">✓ Supported</span></td><td>Use Homebrew for OpenCV</td></tr>
+    <tr><td>Windows 10/11</td><td><span class="badge yellow">⚠ WSL2 needed</span></td><td>Run inside WSL2 Ubuntu for best results</td></tr>
+    <tr><td>Raspberry Pi 4</td><td><span class="badge blue">Edge mode</span></td><td>Use lightweight profile</td></tr>
+  </table>
+
+  <div class="nav-buttons">
+    <button class="btn btn-primary" onclick="markDoneAndNext(0)">✓ Prerequisites Met — Continue →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SECTION 1 — Install Dependencies                        -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section" id="sec1">
+  <div class="section-badge">Step 2 of 13</div>
+  <h2 class="section-title">Install Dependencies</h2>
+  <p class="section-desc">Set up the Python virtual environment and install all packages. This takes 3-5 minutes on first run.</p>
+
+  <div class="steps">
+
+    <div class="step open">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num">A</div>
+        <div class="step-info">
+          <div class="step-title">Unzip and enter project</div>
+          <div class="step-subtitle">Extract the downloaded ZIP file</div>
+        </div>
+        <div class="step-expand">▾</div>
+      </div>
+      <div class="step-body">
+        <div class="code-block">
+          <div class="code-header">
+            <div class="code-lang"><div class="lang-dot" style="background:#4ade80"></div>bash</div>
+            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          </div>
+          <pre><span class="cm"># Unzip the project</span>
+unzip medguard-ai.zip
+cd medguard-ai
+
+<span class="cm"># Verify the structure</span>
+ls -la</pre>
+        </div>
+        <div class="note success"><div class="note-icon">✓</div><div>You should see: backend/, frontend/, deployment/, datasets/, docs/, scripts/</div></div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num">B</div>
+        <div class="step-info">
+          <div class="step-title">Create virtual environment</div>
+          <div class="step-subtitle">Isolate Python packages</div>
+        </div>
+        <div class="step-expand">▾</div>
+      </div>
+      <div class="step-body">
+        <div class="code-block">
+          <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#4ade80"></div>bash</div><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre>python3 -m venv venv
+
+<span class="cm"># Activate it:</span>
+<span class="cm"># Linux / macOS:</span>
+source venv/bin/activate
+
+<span class="cm"># Windows (PowerShell):</span>
+<span class="cm"># venv\Scripts\Activate.ps1</span>
+
+<span class="cm"># Verify activation (should show venv path)</span>
+which python</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num green">C</div>
+        <div class="step-info">
+          <div class="step-title">Install all packages</div>
+          <div class="step-subtitle">~3-5 minutes, ~2 GB download</div>
+        </div>
+        <div class="step-expand">▾</div>
+      </div>
+      <div class="step-body">
+        <div class="code-block">
+          <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#4ade80"></div>bash</div><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre>pip install --upgrade pip
+pip install -r requirements.txt
+
+<span class="cm"># This installs: FastAPI, YOLOv8, PyTorch, MediaPipe,</span>
+<span class="cm"># LangChain, LangGraph, ChromaDB, sentence-transformers, etc.</span></pre>
+        </div>
+        <div class="note warn"><div class="note-icon">⚠️</div><div>If you see CUDA errors for PyTorch, install CPU-only: <code style="font-family:var(--mono)">pip install torch --index-url https://download.pytorch.org/whl/cpu</code></div></div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num yellow">D</div>
+        <div class="step-info">
+          <div class="step-title">Verify installation</div>
+          <div class="step-subtitle">Run the quick check script</div>
+        </div>
+        <div class="step-expand">▾</div>
+      </div>
+      <div class="step-body">
+        <div class="code-block">
+          <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#4ade80"></div>bash</div><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre>python3 -c "
+import torch, cv2, ultralytics, fastapi, langchain
+print('torch:', torch.__version__)
+print('opencv:', cv2.__version__)
+print('ultralytics:', ultralytics.__version__)
+print('fastapi:', fastapi.__version__)
+print('langchain:', langchain.__version__)
+print('All OK!')
+"</pre>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="nav-buttons">
+    <button class="btn btn-secondary" onclick="goTo(0)">← Back</button>
+    <button class="btn btn-primary" onclick="markDoneAndNext(1)">Installed — Continue →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SECTION 2 — Environment Config                          -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section" id="sec2">
+  <div class="section-badge">Step 3 of 13</div>
+  <h2 class="section-title">Environment Config</h2>
+  <p class="section-desc">Create your <code style="font-family:var(--mono);background:rgba(255,255,255,0.07);padding:2px 8px;border-radius:4px">.env</code> file. This controls every aspect of the system — cameras, LLM, database, alerts.</p>
+
+  <div class="code-block">
+    <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#f59e0b"></div>bash</div><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><span class="cm"># Copy the template</span>
+cp .env.example .env
+
+<span class="cm"># Edit it (use any text editor)</span>
+nano .env    <span class="cm"># or: code .env / vim .env</span></pre>
+  </div>
+
+  <div class="note info"><div class="note-icon">💡</div><div>The minimum required settings are shown below. Everything else has sensible defaults.</div></div>
+
+  <div class="steps">
+    <div class="step open">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num">1</div>
+        <div class="step-info">
+          <div class="step-title">Minimum required .env settings</div>
+          <div class="step-subtitle">Copy this to your .env to start immediately</div>
+        </div>
+        <div class="step-expand">▾</div>
+      </div>
+      <div class="step-body">
+        <div class="code-block">
+          <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#f59e0b"></div">.env</div><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre><span class="cm"># ── Minimum config for local dev ──────</span>
+APP_ENV=development
+DATABASE_URL=postgresql+asyncpg://medguard:medguard@localhost:5432/medguard
+REDIS_URL=redis://localhost:6379/0
+
+<span class="cm"># Camera (0 = laptop webcam, or RTSP URL for CCTV)</span>
+CAMERA_SOURCES=0
+
+<span class="cm"># Local LLM via Ollama (free, runs offline)</span>
+LLM_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3
+
+<span class="cm"># Detection sensitivity (lower = more detections)</span>
+DETECTION_CONFIDENCE=0.65
+ALERT_COOLDOWN_SECONDS=30
+
+<span class="cm"># Database memory directory</span>
+MEDGUARD_DB_DIR=./data</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num cyan">2</div>
+        <div class="step-info">
+          <div class="step-title">Optional — Twilio alerts (SMS + calls)</div>
+          <div class="step-subtitle">Free trial available at twilio.com</div>
+        </div>
+        <div class="step-expand">▾</div>
+      </div>
+      <div class="step-body">
+        <div class="code-block">
+          <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#f59e0b"></div">.env</div><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre><span class="cm"># Twilio (sign up free at twilio.com)</span>
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_FROM_NUMBER=+1xxxxxxxxxx</pre>
+        </div>
+        <div class="note info"><div class="note-icon">ℹ️</div><div>Without Twilio, the system runs in <strong>simulated mode</strong> — alerts are logged but not actually sent. Everything else works normally.</div></div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num purple">3</div>
+        <div class="step-info">
+          <div class="step-title">Optional — OpenAI fallback LLM</div>
+          <div class="step-subtitle">Use GPT-4o instead of Ollama</div>
+        </div>
+        <div class="step-expand">▾</div>
+      </div>
+      <div class="step-body">
+        <div class="code-block">
+          <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#f59e0b"></div">.env</div><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre><span class="cm"># Swap Ollama for OpenAI GPT-4o</span>
+LLM_PROVIDER=openai
+OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxx
+OPENAI_MODEL=gpt-4o</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-buttons">
+    <button class="btn btn-secondary" onclick="goTo(1)">← Back</button>
+    <button class="btn btn-primary" onclick="markDoneAndNext(2)">.env Configured — Continue →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SECTION 3 — Database Memory                             -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section" id="sec3">
+  <div class="section-badge">Step 4 of 13 — NEW</div>
+  <h2 class="section-title">Database Memory System</h2>
+  <p class="section-desc">MedGuard AI has a built-in persistent memory layer using SQLite. It stores everything — detection events, patient profiles, chat history, agent decisions, and system health — automatically, with zero configuration.</p>
+
+  <div class="note success"><div class="note-icon">⚡</div><div><strong>Zero configuration needed.</strong> The memory DB starts automatically when the API starts. You just need to run one init command to verify it.</div></div>
+
+  <h3 style="font-size:16px;margin:28px 0 16px;color:var(--accent2)">8 Memory Tables</h3>
+
+  <div class="schema-grid">
+    <div class="schema-card">
+      <div class="schema-header blue">👤 patients</div>
+      <div class="schema-fields">
+        <div class="schema-field"><span class="field-name">id</span><span class="field-type">UUID PK</span></div>
+        <div class="schema-field"><span class="field-name">name, age, gender</span><span class="field-type">TEXT</span></div>
+        <div class="schema-field"><span class="field-name">conditions</span><span class="field-type">JSON[]</span></div>
+        <div class="schema-field"><span class="field-name">medications</span><span class="field-type">JSON[]</span></div>
+        <div class="schema-field"><span class="field-name">emergency_contacts</span><span class="field-type">JSON[]</span></div>
+        <div class="schema-field"><span class="field-name">camera_ids</span><span class="field-type">JSON[]</span></div>
+      </div>
+    </div>
+
+    <div class="schema-card">
+      <div class="schema-header red">🚨 detection_events</div>
+      <div class="schema-fields">
+        <div class="schema-field"><span class="field-name">id</span><span class="field-type">UUID PK</span></div>
+        <div class="schema-field"><span class="field-name">event_type</span><span class="field-type">fall|seizure|…</span></div>
+        <div class="schema-field"><span class="field-name">severity</span><span class="field-type">critical|high|…</span></div>
+        <div class="schema-field"><span class="field-name">confidence</span><span class="field-type">REAL</span></div>
+        <div class="schema-field"><span class="field-name">snapshot_path</span><span class="field-type">TEXT</span></div>
+        <div class="schema-field"><span class="field-name">resolved</span><span class="field-type">BOOL</span></div>
+      </div>
+    </div>
+
+    <div class="schema-card">
+      <div class="schema-header green">💬 chat_messages</div>
+      <div class="schema-fields">
+        <div class="schema-field"><span class="field-name">session_id</span><span class="field-type">TEXT IDX</span></div>
+        <div class="schema-field"><span class="field-name">patient_id</span><span class="field-type">FK</span></div>
+        <div class="schema-field"><span class="field-name">role</span><span class="field-type">user|assistant</span></div>
+        <div class="schema-field"><span class="field-name">content</span><span class="field-type">TEXT</span></div>
+        <div class="schema-field"><span class="field-name">timestamp</span><span class="field-type">ISO datetime</span></div>
+      </div>
+    </div>
+
+    <div class="schema-card">
+      <div class="schema-header purple">🤖 agent_memory</div>
+      <div class="schema-fields">
+        <div class="schema-field"><span class="field-name">agent_run</span><span class="field-type">UUID group</span></div>
+        <div class="schema-field"><span class="field-name">step</span><span class="field-type">INT</span></div>
+        <div class="schema-field"><span class="field-name">action_type</span><span class="field-type">tool_call|…</span></div>
+        <div class="schema-field"><span class="field-name">tool_name</span><span class="field-type">TEXT</span></div>
+        <div class="schema-field"><span class="field-name">tool_input</span><span class="field-type">JSON</span></div>
+        <div class="schema-field"><span class="field-name">tool_output</span><span class="field-type">TEXT</span></div>
+      </div>
+    </div>
+
+    <div class="schema-card">
+      <div class="schema-header yellow">📄 medical_documents</div>
+      <div class="schema-fields">
+        <div class="schema-field"><span class="field-name">patient_id</span><span class="field-type">FK</span></div>
+        <div class="schema-field"><span class="field-name">title</span><span class="field-type">TEXT</span></div>
+        <div class="schema-field"><span class="field-name">content</span><span class="field-type">TEXT</span></div>
+        <div class="schema-field"><span class="field-name">doc_type</span><span class="field-type">report|lab|…</span></div>
+        <div class="schema-field"><span class="field-name">checksum</span><span class="field-type">MD5 dedup</span></div>
+      </div>
+    </div>
+
+    <div class="schema-card">
+      <div class="schema-header cyan">📊 system_snapshots</div>
+      <div class="schema-fields">
+        <div class="schema-field"><span class="field-name">cameras</span><span class="field-type">JSON</span></div>
+        <div class="schema-field"><span class="field-name">ws_clients</span><span class="field-type">INT</span></div>
+        <div class="schema-field"><span class="field-name">cpu_pct, mem_pct</span><span class="field-type">REAL</span></div>
+        <div class="schema-field"><span class="field-name">detections_hour</span><span class="field-type">INT</span></div>
+      </div>
+    </div>
+  </div>
+
+  <h3 style="font-size:16px;margin:28px 0 14px;color:var(--accent2)">Initialise the Memory DB</h3>
+
+  <div class="code-block">
+    <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#4ade80"></div>bash</div><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><span class="cm"># From your project root (with venv active):</span>
+python3 -c "
+from backend.utils.memory_db import init_memory_db, get_db_info
+path = init_memory_db()
+print('DB created:', path)
+info = get_db_info()
+print('Tables:', info['row_counts'])
+"</pre>
+  </div>
+
+  <div class="note success"><div class="note-icon">✓</div><div>Expected output: <code style="font-family:var(--mono)">DB created: ./data/medguard_memory.db</code> and all table counts at 0.</div></div>
+
+  <h3 style="font-size:16px;margin:28px 0 14px;color:var(--accent2)">Add Your First Patient</h3>
+
+  <div class="code-block">
+    <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#a78bfa"></div>python</div><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><span class="kw">from</span> backend.utils.memory_db <span class="kw">import</span> save_patient, save_notification_pref
+
+<span class="cm"># Create a patient profile</span>
+patient_id = save_patient(
+    name=<span class="str">"Ravi Kumar"</span>,
+    age=<span class="num">68</span>,
+    gender=<span class="str">"Male"</span>,
+    blood_group=<span class="str">"B+"</span>,
+    conditions=[<span class="str">"Epilepsy"</span>, <span class="str">"Type-2 Diabetes"</span>],
+    medications=[<span class="str">"Valproate 500mg"</span>, <span class="str">"Metformin 1g"</span>],
+    allergies=[<span class="str">"Sulfa drugs"</span>],
+    emergency_contacts=[
+        {<span class="str">"name"</span>: <span class="str">"Priya Kumar"</span>, <span class="str">"phone"</span>: <span class="str">"+91-98765-43210"</span>, <span class="str">"relation"</span>: <span class="str">"Daughter"</span>}
+    ],
+    camera_ids=[<span class="str">"cam_0"</span>, <span class="str">"cam_1"</span>],  <span class="cm"># cameras monitoring this patient</span>
+    notes=<span class="str">"History of nocturnal seizures. Alert daughter immediately."</span>
+)
+
+<span class="cm"># Set notification preference</span>
+save_notification_pref(patient_id, <span class="str">"sms"</span>, <span class="str">"+91-98765-43210"</span>, threshold=<span class="str">"high"</span>)
+
+print(<span class="str">f"Patient created: {patient_id}"</span>)</pre>
+  </div>
+
+  <div class="nav-buttons">
+    <button class="btn btn-secondary" onclick="goTo(2)">← Back</button>
+    <button class="btn btn-primary" onclick="markDoneAndNext(3)">DB Initialised — Continue →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SECTION 4 — Docker Services                             -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section" id="sec4">
+  <div class="section-badge">Step 5 of 13</div>
+  <h2 class="section-title">Start Docker Services</h2>
+  <p class="section-desc">Start the infrastructure stack. You only need PostgreSQL + Redis to run the API. Kafka, MLflow, Grafana are optional.</p>
+
+  <div class="steps">
+    <div class="step open">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num">1</div>
+        <div class="step-info">
+          <div class="step-title">Minimal startup (recommended for first run)</div>
+          <div class="step-subtitle">PostgreSQL + Redis only</div>
+        </div>
+        <div class="step-expand">▾</div>
+      </div>
+      <div class="step-body">
+        <div class="code-block">
+          <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#4ade80"></div>bash</div><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre>cd deployment
+
+<span class="cm"># Start only core services</span>
+docker-compose up -d postgres redis
+
+<span class="cm"># Verify they are healthy</span>
+docker-compose ps
+
+<span class="cm"># You should see STATUS: healthy for both</span></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num cyan">2</div>
+        <div class="step-info">
+          <div class="step-title">Full stack startup (production)</div>
+          <div class="step-subtitle">All 10 services</div>
+        </div>
+        <div class="step-expand">▾</div>
+      </div>
+      <div class="step-body">
+        <div class="code-block">
+          <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#4ade80"></div>bash</div><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre>docker-compose up -d
+
+<span class="cm"># Services started:</span>
+<span class="cm"># postgres   :5432  — Main database</span>
+<span class="cm"># redis      :6379  — Cache + pub/sub</span>
+<span class="cm"># kafka      :9092  — Event streaming</span>
+<span class="cm"># ollama     :11434 — Local LLM</span>
+<span class="cm"># mlflow     :5000  — Model tracking</span>
+<span class="cm"># prometheus :9090  — Metrics</span>
+<span class="cm"># grafana    :3001  — Dashboards</span></pre>
+        </div>
+        <div class="note warn"><div class="note-icon">⚠️</div><div>First startup downloads ~8 GB of Docker images. Subsequent starts are instant.</div></div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num green">3</div>
+        <div class="step-info">
+          <div class="step-title">Pull Ollama LLM model</div>
+          <div class="step-subtitle">Download Llama3 (~4 GB)</div>
+        </div>
+        <div class="step-expand">▾</div>
+      </div>
+      <div class="step-body">
+        <div class="code-block">
+          <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#4ade80"></div>bash</div><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre><span class="cm"># Find your ollama container name</span>
+docker ps | grep ollama
+
+<span class="cm"># Pull the model (replace container name as needed)</span>
+docker exec medguard-ollama-1 ollama pull llama3
+
+<span class="cm"># Lighter alternatives if RAM is limited:</span>
+<span class="cm"># docker exec medguard-ollama-1 ollama pull phi3        (~2.3 GB)</span>
+<span class="cm"># docker exec medguard-ollama-1 ollama pull gemma2:2b   (~1.6 GB)</span></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-buttons">
+    <button class="btn btn-secondary" onclick="goTo(3)">← Back</button>
+    <button class="btn btn-primary" onclick="markDoneAndNext(4)">Docker Running — Continue →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SECTION 5 — ML Models                                   -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section" id="sec5">
+  <div class="section-badge">Step 6 of 13</div>
+  <h2 class="section-title">Download ML Models</h2>
+  <p class="section-desc">Download the YOLOv8-Pose weights. Everything else is downloaded automatically on first run.</p>
+
+  <div class="code-block">
+    <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#a78bfa"></div>python</div><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><span class="cm"># Run from project root (venv active)</span>
+python3 -c "
+from ultralytics import YOLO
+import os, shutil
+
+<span class="cm"># Downloads ~6MB YOLOv8 nano-pose model</span>
+model = YOLO(<span class="str">'yolov8n-pose.pt'</span>)
+os.makedirs(<span class="str">'models'</span>, exist_ok=True)
+if os.path.exists(<span class="str">'yolov8n-pose.pt'</span>):
+    shutil.move(<span class="str">'yolov8n-pose.pt'</span>, <span class="str">'models/yolov8n-pose.pt'</span>)
+print(<span class="str">'Model ready at models/yolov8n-pose.pt'</span>)
+"</pre>
+  </div>
+
+  <table class="data-table">
+    <tr><th>Model</th><th>Size</th><th>Use</th><th>Auto-download?</th></tr>
+    <tr><td><code style="font-family:var(--mono)">yolov8n-pose.pt</code></td><td>6 MB</td><td>Pose estimation (primary)</td><td><span class="badge green">Yes</span></td></tr>
+    <tr><td>MediaPipe Pose</td><td>~30 MB</td><td>Pose fallback (edge)</td><td><span class="badge green">Yes</span></td></tr>
+    <tr><td>all-MiniLM-L6-v2</td><td>90 MB</td><td>RAG embeddings</td><td><span class="badge green">Yes</span></td></tr>
+    <tr><td>Llama3 (via Ollama)</td><td>4.1 GB</td><td>LLM for chat + agent</td><td><span class="badge yellow">Manual step above</span></td></tr>
+    <tr><td>action_classifier.pt</td><td>~5 MB</td><td>Custom trained classifier</td><td><span class="badge blue">Train yourself</span></td></tr>
+  </table>
+
+  <div class="note info"><div class="note-icon">💡</div><div>The system works without <code style="font-family:var(--mono)">action_classifier.pt</code> — it uses physics-based heuristics for fall/seizure detection until you train the model.</div></div>
+
+  <div class="nav-buttons">
+    <button class="btn btn-secondary" onclick="goTo(4)">← Back</button>
+    <button class="btn btn-primary" onclick="markDoneAndNext(5)">Models Ready — Continue →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SECTION 6 — Start the API                              -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section" id="sec6">
+  <div class="section-badge">Step 7 of 13</div>
+  <h2 class="section-title">Start the API Server</h2>
+  <p class="section-desc">Launch the FastAPI backend. This starts the video pipeline, inference engine, and WebSocket server all at once.</p>
+
+  <div class="code-block">
+    <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#4ade80"></div>bash</div><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><span class="cm"># From project root, with venv active:</span>
+source venv/bin/activate
+cd medguard-ai
+
+<span class="cm"># Start API in development mode (auto-reload on file changes)</span>
+uvicorn backend.api.main:app \
+    --host 0.0.0.0 \
+    --port 8000 \
+    --reload \
+    --log-level info</pre>
+  </div>
+
+  <p style="margin:20px 0 12px;font-size:14px;color:var(--text-dim)">You should see output like:</p>
+
+  <div class="code-block">
+    <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#6ee7b7"></div>output</div></div>
+    <pre style="color:#6ee7b7">INFO:     Started server process [12345]
+INFO:     Waiting for application startup.
+{"event": "database_initialised", ...}
+{"event": "camera_started", "camera_id": "cam_0", ...}
+{"event": "inference_engine_running", ...}
+{"event": "medguard_ai_started", ...}
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000</pre>
+  </div>
+
+  <div class="note success"><div class="note-icon">✓</div><div>Visit <strong>http://localhost:8000/docs</strong> to see the interactive API documentation (Swagger UI).</div></div>
+
+  <table class="data-table">
+    <tr><th>URL</th><th>What it does</th></tr>
+    <tr><td><code style="font-family:var(--mono)">http://localhost:8000/health</code></td><td>System health + camera status</td></tr>
+    <tr><td><code style="font-family:var(--mono)">http://localhost:8000/docs</code></td><td>Interactive API docs (Swagger)</td></tr>
+    <tr><td><code style="font-family:var(--mono)">ws://localhost:8000/ws/events</code></td><td>Live detection events (WebSocket)</td></tr>
+    <tr><td><code style="font-family:var(--mono)">http://localhost:8000/metrics</code></td><td>Prometheus metrics</td></tr>
+  </table>
+
+  <div class="nav-buttons">
+    <button class="btn btn-secondary" onclick="goTo(5)">← Back</button>
+    <button class="btn btn-primary" onclick="markDoneAndNext(6)">API Running — Continue →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SECTION 7 — Dashboard                                   -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section" id="sec7">
+  <div class="section-badge">Step 8 of 13</div>
+  <h2 class="section-title">Open the Dashboard</h2>
+  <p class="section-desc">Open the live monitoring dashboard. It auto-connects to the API and shows detections in real time.</p>
+
+  <div class="steps">
+    <div class="step open">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num">1</div>
+        <div class="step-info">
+          <div class="step-title">Open directly in browser</div>
+          <div class="step-subtitle">Simplest option</div>
+        </div>
+        <div class="step-expand">▾</div>
+      </div>
+      <div class="step-body">
+        <div class="code-block">
+          <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#4ade80"></div>bash</div><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre><span class="cm"># Open directly</span>
+open frontend/dashboard/index.html    <span class="cm"># macOS</span>
+xdg-open frontend/dashboard/index.html  <span class="cm"># Linux</span>
+start frontend/dashboard/index.html   <span class="cm"># Windows</span></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num cyan">2</div>
+        <div class="step-info">
+          <div class="step-title">Serve via HTTP (recommended)</div>
+          <div class="step-subtitle">Avoids browser CORS restrictions</div>
+        </div>
+        <div class="step-expand">▾</div>
+      </div>
+      <div class="step-body">
+        <div class="code-block">
+          <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#4ade80"></div>bash</div><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre>cd frontend/dashboard
+python3 -m http.server 3000
+<span class="cm"># Visit: http://localhost:3000</span></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num green">3</div>
+        <div class="step-info">
+          <div class="step-title">Install Chrome Extension (optional)</div>
+          <div class="step-subtitle">Get popup alerts even when dashboard is closed</div>
+        </div>
+        <div class="step-expand">▾</div>
+      </div>
+      <div class="step-body">
+        <ol style="padding-left:20px;line-height:2.2;font-size:14px;color:var(--text-dim)">
+          <li>Open Chrome → type <code style="font-family:var(--mono);background:rgba(255,255,255,0.07);padding:1px 6px;border-radius:3px">chrome://extensions</code> in address bar</li>
+          <li>Toggle <strong style="color:var(--text)">Developer mode</strong> ON (top right)</li>
+          <li>Click <strong style="color:var(--text)">Load unpacked</strong></li>
+          <li>Select the <code style="font-family:var(--mono);background:rgba(255,255,255,0.07);padding:1px 6px;border-radius:3px">frontend/extension/</code> folder</li>
+          <li>The MedGuard icon appears in your Chrome toolbar</li>
+        </ol>
+        <div class="note info"><div class="note-icon">ℹ️</div><div>The extension automatically connects to <code style="font-family:var(--mono)">ws://localhost:8000</code> and fires browser notifications for CRITICAL events.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-buttons">
+    <button class="btn btn-secondary" onclick="goTo(6)">← Back</button>
+    <button class="btn btn-primary" onclick="markDoneAndNext(7)">Dashboard Open — Continue →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SECTION 8 — Test Camera                                 -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section" id="sec8">
+  <div class="section-badge">Step 9 of 13</div>
+  <h2 class="section-title">Test Camera Detection</h2>
+  <p class="section-desc">Verify the vision pipeline works with your camera. This opens a live window with pose skeleton overlaid and detection labels.</p>
+
+  <div class="code-block">
+    <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#4ade80"></div>bash</div><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><span class="cm"># Test webcam (index 0)</span>
+python3 scripts/test_camera.py --source 0
+
+<span class="cm"># Test with a video file</span>
+python3 scripts/test_camera.py --source path/to/video.mp4
+
+<span class="cm"># Test with CCTV (RTSP stream)</span>
+python3 scripts/test_camera.py --source "rtsp://user:pass@192.168.1.100:554/stream"
+
+<span class="cm"># Press Q to quit the preview window</span></pre>
+  </div>
+
+  <p style="font-size:14px;color:var(--text-dim);margin:20px 0 12px">What you'll see on screen:</p>
+
+  <div class="note success"><div class="note-icon">🎯</div><div>
+    <strong>Cyan skeleton lines</strong> — pose keypoints detected<br>
+    <strong>Red banner</strong> — when a fall/seizure is detected<br>
+    <strong>FPS counter</strong> — top right (15-30fps on CPU)<br>
+    <strong>Person count</strong> — number of people in frame
+  </div></div>
+
+  <h3 style="font-size:15px;margin:24px 0 12px">Simulate Emergency Events (demo)</h3>
+  <p style="font-size:14px;color:var(--text-dim);margin-bottom:14px">To test the full alert pipeline without a real emergency:</p>
+
+  <div class="code-block">
+    <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#a78bfa"></div>python</div><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><span class="cm"># Send a test event to the API (with API running)</span>
+python3 -c "
+import requests, time
+
+event = {
+    <span class="str">'event_type'</span>: <span class="str">'seizure'</span>,
+    <span class="str">'severity'</span>: <span class="str">'critical'</span>,
+    <span class="str">'confidence'</span>: <span class="num">0.92</span>,
+    <span class="str">'camera_id'</span>: <span class="str">'cam_0'</span>,
+}
+
+<span class="cm"># This triggers: DB save + WebSocket push + Emergency agent</span>
+r = requests.post(<span class="str">'http://localhost:8000/api/test/simulate'</span>, json=event)
+print(<span class="str">'Simulated:'</span>, r.json())
+"</pre>
+  </div>
+
+  <div class="nav-buttons">
+    <button class="btn btn-secondary" onclick="goTo(7)">← Back</button>
+    <button class="btn btn-primary" onclick="markDoneAndNext(8)">Camera Working — Continue →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SECTION 9 — LLM + Agent                                 -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section" id="sec9">
+  <div class="section-badge">Step 10 of 13</div>
+  <h2 class="section-title">LLM + Emergency Agent</h2>
+  <p class="section-desc">Configure the AI agent and chat assistant. Uses Ollama (free, local) by default. Can switch to OpenAI GPT-4o with one env variable.</p>
+
+  <div class="steps">
+    <div class="step open">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num">A</div>
+        <div class="step-info">
+          <div class="step-title">Test Ollama connection</div>
+        </div>
+        <div class="step-expand">▾</div>
+      </div>
+      <div class="step-body">
+        <div class="code-block">
+          <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#4ade80"></div>bash</div><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre><span class="cm"># Check Ollama is running</span>
+curl http://localhost:11434/api/tags
+
+<span class="cm"># Should show: {"models":[{"name":"llama3",...}]}</span></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num green">B</div>
+        <div class="step-info">
+          <div class="step-title">Test the medical chat assistant</div>
+        </div>
+        <div class="step-expand">▾</div>
+      </div>
+      <div class="step-body">
+        <div class="code-block">
+          <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#4ade80"></div>bash</div><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre>curl -X POST http://localhost:8000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "What medications should I avoid with epilepsy?",
+    "session_id": "test_session_001"
+  }'</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num purple">C</div>
+        <div class="step-info">
+          <div class="step-title">Add emergency contacts to trigger agent</div>
+        </div>
+        <div class="step-expand">▾</div>
+      </div>
+      <div class="step-body">
+        <div class="code-block">
+          <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#a78bfa"></div>python</div><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre><span class="cm"># Update a patient with emergency contact</span>
+<span class="cm"># (so the agent knows who to call)</span>
+<span class="kw">from</span> backend.utils.memory_db <span class="kw">import</span> save_patient, get_patient
+
+patient_id = <span class="str">"YOUR_PATIENT_ID_HERE"</span>
+p = get_patient(patient_id)
+
+save_patient(
+    patient_id=patient_id,
+    emergency_contacts=[
+        {
+            <span class="str">"name"</span>: <span class="str">"Dr. Sharma"</span>,
+            <span class="str">"phone"</span>: <span class="str">"+91-11-2659-3000"</span>,  <span class="cm"># AIIMS Delhi</span>
+            <span class="str">"relation"</span>: <span class="str">"Primary Doctor"</span>
+        },
+        {
+            <span class="str">"name"</span>: <span class="str">"Priya"</span>,
+            <span class="str">"phone"</span>: <span class="str">"+91-98765-43210"</span>,
+            <span class="str">"relation"</span>: <span class="str">"Daughter"</span>
+        }
+    ],
+    **{k:v <span class="kw">for</span> k,v <span class="kw">in</span> p.items()
+       <span class="kw">if</span> k <span class="kw">not in</span> [<span class="str">'id'</span>,<span class="str">'emergency_contacts'</span>,<span class="str">'created_at'</span>,<span class="str">'updated_at'</span>]}
+)</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-buttons">
+    <button class="btn btn-secondary" onclick="goTo(8)">← Back</button>
+    <button class="btn btn-primary" onclick="markDoneAndNext(9)">Agent Configured — Continue →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SECTION 10 — Memory API Reference                       -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section" id="sec10">
+  <div class="section-badge">Step 11 of 13</div>
+  <h2 class="section-title">Database Memory API Reference</h2>
+  <p class="section-desc">Complete reference for querying and managing the persistent memory. Use these in any Python script or from the FastAPI endpoints.</p>
+
+  <div class="steps">
+
+    <div class="step open">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num blue">①</div>
+        <div class="step-info">
+          <div class="step-title">Query detection events</div>
+        </div>
+        <div class="step-expand">▾</div>
+      </div>
+      <div class="step-body">
+        <div class="code-block">
+          <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#a78bfa"></div>python</div><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre><span class="kw">from</span> backend.utils.memory_db <span class="kw">import</span> *
+
+<span class="cm"># Get last 50 events</span>
+events = get_detection_events(limit=<span class="num">50</span>)
+
+<span class="cm"># Filter by type and severity</span>
+critical = get_detection_events(
+    severity=<span class="str">"critical"</span>,
+    event_type=<span class="str">"seizure"</span>,
+    since_hours=<span class="num">24</span>
+)
+
+<span class="cm"># Get unresolved events</span>
+unresolved = get_detection_events(resolved=<span class="kw">False</span>)
+
+<span class="cm"># Resolve an event</span>
+resolve_event(event_id=<span class="str">"uuid-here"</span>, resolved_by=<span class="str">"Dr. Patel"</span>)
+
+<span class="cm"># 24-hour summary stats</span>
+stats = get_event_stats(hours=<span class="num">24</span>)
+print(stats)
+<span class="cm"># {'total_events': 12, 'unresolved': 3,</span>
+<span class="cm">#  'by_type': {'fall': 5, 'seizure': 7},</span>
+<span class="cm">#  'avg_confidence': 0.847}</span></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num green">②</div>
+        <div class="step-info">
+          <div class="step-title">Chat history management</div>
+        </div>
+        <div class="step-expand">▾</div>
+      </div>
+      <div class="step-body">
+        <div class="code-block">
+          <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#a78bfa"></div>python</div><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre><span class="cm"># Save a chat message</span>
+save_chat_message(
+    session_id=<span class="str">"sess_abc"</span>,
+    role=<span class="str">"user"</span>,
+    content=<span class="str">"What are the signs of a cardiac event?"</span>,
+    patient_id=<span class="str">"patient-uuid"</span>
+)
+
+<span class="cm"># Retrieve full history</span>
+history = get_chat_history(<span class="str">"sess_abc"</span>, limit=<span class="num">20</span>)
+<span class="kw">for</span> msg <span class="kw">in</span> history:
+    print(f<span class="str">"{msg['role']}: {msg['content'][:60]}"</span>)
+
+<span class="cm"># Get all sessions for a patient</span>
+sessions = get_all_sessions(patient_id=<span class="str">"patient-uuid"</span>)
+
+<span class="cm"># Clear a session (e.g. on logout)</span>
+count = clear_session(<span class="str">"sess_abc"</span>)
+print(f<span class="str">"Deleted {count} messages"</span>)</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num purple">③</div>
+        <div class="step-info">
+          <div class="step-title">Export + backup memory</div>
+        </div>
+        <div class="step-expand">▾</div>
+      </div>
+      <div class="step-body">
+        <div class="code-block">
+          <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#a78bfa"></div>python</div><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre><span class="cm"># Export entire DB to JSON</span>
+result = export_memory(<span class="str">"./backup/export_2025.json"</span>)
+print(result)
+<span class="cm"># {'path': './backup/export_2025.json',</span>
+<span class="cm">#  'patients': 5, 'events': 347}</span>
+
+<span class="cm"># Check DB health</span>
+info = get_db_info()
+print(info)
+<span class="cm"># {'db_path': './data/medguard_memory.db',</span>
+<span class="cm">#  'db_size_kb': 420.5,</span>
+<span class="cm">#  'row_counts': {'patients': 5, 'detection_events': 347, ...}}</span></pre>
+        </div>
+        <div class="note info"><div class="note-icon">💡</div><div>The SQLite file at <code style="font-family:var(--mono)">data/medguard_memory.db</code> can be opened with any SQLite viewer like <strong>DB Browser for SQLite</strong> (free download).</div></div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num cyan">④</div>
+        <div class="step-info">
+          <div class="step-title">REST API endpoints for memory</div>
+        </div>
+        <div class="step-expand">▾</div>
+      </div>
+      <div class="step-body">
+        <div class="code-block">
+          <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#4ade80"></div>bash</div><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre><span class="cm"># Get all patients</span>
+curl http://localhost:8000/api/patients
+
+<span class="cm"># Get a specific patient</span>
+curl http://localhost:8000/api/patients/&lt;patient_id&gt;
+
+<span class="cm"># Get recent detections</span>
+curl "http://localhost:8000/api/detections?limit=20&severity=critical"
+
+<span class="cm"># Get 24h stats</span>
+curl http://localhost:8000/api/stats
+
+<span class="cm"># Get DB info</span>
+curl http://localhost:8000/api/memory/info
+
+<span class="cm"># Export full backup</span>
+curl http://localhost:8000/api/memory/export
+
+<span class="cm"># Chat with memory</span>
+curl -X POST http://localhost:8000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message":"What happened today?","session_id":"s1","patient_id":"uuid"}'</pre>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="nav-buttons">
+    <button class="btn btn-secondary" onclick="goTo(9)">← Back</button>
+    <button class="btn btn-primary" onclick="markDoneAndNext(10)">Understood — Continue →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SECTION 11 — Train Your Model                           -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section" id="sec11">
+  <div class="section-badge">Step 12 of 13</div>
+  <h2 class="section-title">Train Your Custom Model</h2>
+  <p class="section-desc">Improve detection accuracy by training on your own video data. The system works without this, but training makes it much more accurate for specific scenarios.</p>
+
+  <div class="code-block">
+    <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#4ade80"></div>bash</div><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><span class="cm"># 1. Collect skeleton sequences from your videos</span>
+python3 datasets/prepare_data.py \
+  --input_dir ./datasets/raw \
+  --output_dir ./datasets/processed
+
+<span class="cm"># 2. Train (50 epochs, ~30min on CPU, 5min on GPU)</span>
+bash scripts/train_model.sh
+
+<span class="cm"># 3. Monitor training in MLflow</span>
+open http://localhost:5000</pre>
+  </div>
+
+  <p style="font-size:14px;color:var(--text-dim);margin:20px 0 12px">Recommended datasets (all free):</p>
+
+  <table class="data-table">
+    <tr><th>Dataset</th><th>Events</th><th>Link</th></tr>
+    <tr><td>UR Fall Detection</td><td>Falls, 70 videos</td><td><span class="badge blue">fenix.ur.edu.pl</span></td></tr>
+    <tr><td>NTU RGB+D 120</td><td>120 action classes</td><td><span class="badge blue">rose1.ntu.edu.sg</span></td></tr>
+    <tr><td>ShanghaiTech</td><td>Anomaly detection</td><td><span class="badge blue">svip-lab.github.io</span></td></tr>
+    <tr><td>FER2013</td><td>Facial expressions</td><td><span class="badge blue">kaggle.com</span></td></tr>
+  </table>
+
+  <div class="nav-buttons">
+    <button class="btn btn-secondary" onclick="goTo(10)">← Back</button>
+    <button class="btn btn-primary" onclick="markDoneAndNext(11)">Got It — Continue →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SECTION 12 — Troubleshooting                            -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section" id="sec12">
+  <div class="section-badge">Step 13 of 13</div>
+  <h2 class="section-title">Troubleshooting</h2>
+  <p class="section-desc">Common issues and how to fix them.</p>
+
+  <div class="steps">
+    <div class="step open">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num red" style="background:#ef4444">!</div>
+        <div class="step-info">
+          <div class="step-title">Camera not opening / black screen</div>
+        </div>
+        <div class="step-expand">▾</div>
+      </div>
+      <div class="step-body">
+        <div class="code-block">
+          <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#4ade80"></div>bash</div><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre><span class="cm"># List available cameras</span>
+python3 -c "
+import cv2
+for i in range(5):
+    cap = cv2.VideoCapture(i)
+    if cap.isOpened():
+        print(f'Camera {i}: AVAILABLE')
+        cap.release()
+"
+
+<span class="cm"># Fix: change CAMERA_SOURCES in .env to the correct index</span>
+<span class="cm"># or grant camera permissions to Python/Terminal in System Settings</span></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num red" style="background:#ef4444">!</div>
+        <div class="step-info">
+          <div class="step-title">Database connection refused</div>
+        </div>
+        <div class="step-expand">▾</div>
+      </div>
+      <div class="step-body">
+        <div class="code-block">
+          <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#4ade80"></div>bash</div><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre><span class="cm"># Check if postgres is running</span>
+docker ps | grep postgres
+
+<span class="cm"># If not running:</span>
+cd deployment && docker-compose up -d postgres
+
+<span class="cm"># The SQLite memory DB ALWAYS works without PostgreSQL</span>
+<span class="cm"># Check it with:</span>
+python3 -c "from backend.utils.memory_db import get_db_info; print(get_db_info())"</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num red" style="background:#ef4444">!</div>
+        <div class="step-info">
+          <div class="step-title">Ollama / LLM not responding</div>
+        </div>
+        <div class="step-expand">▾</div>
+      </div>
+      <div class="step-body">
+        <div class="code-block">
+          <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#4ade80"></div>bash</div><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre><span class="cm"># Check Ollama is running</span>
+curl http://localhost:11434/api/tags
+
+<span class="cm"># Restart Ollama container</span>
+docker restart $(docker ps -q --filter name=ollama)
+
+<span class="cm"># Pull model again if missing</span>
+docker exec $(docker ps -q --filter name=ollama) ollama pull llama3</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num red" style="background:#ef4444">!</div>
+        <div class="step-info">
+          <div class="step-title">Too many false detections</div>
+        </div>
+        <div class="step-expand">▾</div>
+      </div>
+      <div class="step-body">
+        <div class="code-block">
+          <div class="code-header"><div class="code-lang"><div class="lang-dot" style="background:#f59e0b"></div">.env</div><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre><span class="cm"># Raise detection threshold (more conservative)</span>
+DETECTION_CONFIDENCE=0.80
+
+<span class="cm"># Increase cooldown between alerts (seconds)</span>
+ALERT_COOLDOWN_SECONDS=60
+
+<span class="cm"># Restart API after changing</span></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num yellow">?</div>
+        <div class="step-info">
+          <div class="step-title">View DB memory with GUI tool</div>
+        </div>
+        <div class="step-expand">▾</div>
+      </div>
+      <div class="step-body">
+        <p style="font-size:14px;color:var(--text-dim);line-height:1.8;margin-bottom:12px">
+          Download <strong style="color:var(--text)">DB Browser for SQLite</strong> (free) from <code style="font-family:var(--mono)">sqlitebrowser.org</code>.<br>
+          Open the file: <code style="font-family:var(--mono);background:rgba(255,255,255,0.07);padding:2px 8px;border-radius:3px">medguard-ai/data/medguard_memory.db</code>
+        </p>
+        <div class="note success"><div class="note-icon">💡</div><div>You can browse all 8 tables, run SQL queries, and export to CSV directly from the GUI — no coding needed.</div></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="note success" style="margin-top:32px">
+    <div class="note-icon">🎉</div>
+    <div>
+      <strong>Setup Complete!</strong> MedGuard AI is now running with full database memory. Every detection, chat, and agent action is persisted automatically.
+      <br><br>
+      Dashboard: <code style="font-family:var(--mono)">http://localhost:3000</code> |
+      API Docs: <code style="font-family:var(--mono)">http://localhost:8000/docs</code>
+    </div>
+  </div>
+
+  <div class="nav-buttons">
+    <button class="btn btn-secondary" onclick="goTo(11)">← Back</button>
+    <button class="btn btn-primary" onclick="markDoneAndNext(12)" style="background:var(--green)">🎉 Setup Complete!</button>
+  </div>
+</div>
+
+</div><!-- end main -->
+
+<script>
+const TOTAL = 13;
+let currentSection = 0;
+let doneSet = new Set();
+
+function goTo(idx) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('sec' + idx).classList.add('active');
+
+  document.querySelectorAll('.nav-link').forEach((n, i) => {
+    n.classList.toggle('active', i === idx);
+  });
+
+  currentSection = idx;
+  document.getElementById('mainContent').scrollTop = 0;
+  updateProgress();
+}
+
+function markDoneAndNext(idx) {
+  doneSet.add(idx);
+  const navEl = document.getElementById('nav' + idx);
+  if (navEl) navEl.classList.add('done');
+  if (idx + 1 < TOTAL) goTo(idx + 1);
+  updateProgress();
+}
+
+function updateProgress() {
+  const pct = Math.round((doneSet.size / TOTAL) * 100);
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressPct').textContent = pct + '%';
+}
+
+function toggleStep(header) {
+  const step = header.parentElement;
+  step.classList.toggle('open');
+}
+
+function toggleCheck(li) {
+  li.classList.toggle('checked');
+}
+
+function copyCode(btn) {
+  const pre = btn.closest('.code-block').querySelector('pre');
+  const text = pre.innerText || pre.textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✓ Copied';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+// Mark step 1 checkbox as pre-checked
+document.querySelector('#prereqList li').classList.add('checked');
+</script>
+</body>
+</html>

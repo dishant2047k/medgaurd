@@ -1,0 +1,1533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MedGuard AI — Emergency Detection Dashboard</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #080c12;
+    --surface: #0e1520;
+    --surface2: #131d2e;
+    --border: #1e2d42;
+    --border-bright: #2a4060;
+    --accent: #00e5ff;
+    --accent2: #0099bb;
+    --danger: #ff2d55;
+    --danger-dim: rgba(255,45,85,0.15);
+    --warning: #ff9f0a;
+    --success: #34c759;
+    --text: #e8f4ff;
+    --text-dim: #6b8aaa;
+    --mono: 'Space Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content:'';
+    position:fixed;
+    inset:0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,229,255,0.015) 2px,
+      rgba(0,229,255,0.015) 4px
+    );
+    pointer-events:none;
+    z-index:999;
+  }
+
+  /* ── Header ─────────────────────────────────────── */
+  header {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding: 16px 32px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(14,21,32,0.95);
+    backdrop-filter: blur(12px);
+    position: sticky;
+    top:0;
+    z-index: 100;
+  }
+
+  .logo {
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+
+  .logo-icon {
+    width:36px; height:36px;
+    background: var(--accent);
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    display:flex; align-items:center; justify-content:center;
+    position:relative;
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 0 rgba(0,229,255,0); }
+    50%       { box-shadow: 0 0 24px rgba(0,229,255,0.6); }
+  }
+
+  .logo h1 {
+    font-family: var(--mono);
+    font-size: 18px;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+  }
+
+  .logo span {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.15em;
+    display:block;
+  }
+
+  .header-status {
+    display:flex;
+    align-items:center;
+    gap:24px;
+  }
+
+  .status-pill {
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding: 6px 14px;
+    border-radius: 100px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+  }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--success);
+    animation: blink 1.2s ease-in-out infinite;
+  }
+
+  .status-dot.alert { background: var(--danger); }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* ── Layout ─────────────────────────────────────── */
+  .layout {
+    display: grid;
+    grid-template-columns: 280px 1fr 320px;
+    grid-template-rows: auto;
+    gap: 0;
+    height: calc(100vh - 73px);
+    overflow: hidden;
+  }
+
+  /* ── Sidebar ────────────────────────────────────── */
+  .sidebar {
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 20px 0;
+    background: var(--surface);
+  }
+
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+
+  .sidebar-section {
+    padding: 0 20px 24px;
+  }
+
+  .sidebar-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    padding: 0 20px 12px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+
+  .sidebar-label::after {
+    content:'';
+    flex:1;
+    height:1px;
+    background: var(--border);
+  }
+
+  .nav-item {
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding: 10px 20px;
+    cursor:pointer;
+    border-left: 3px solid transparent;
+    transition: all 0.15s;
+    font-size: 14px;
+    color: var(--text-dim);
+  }
+
+  .nav-item:hover, .nav-item.active {
+    background: rgba(0,229,255,0.06);
+    border-left-color: var(--accent);
+    color: var(--text);
+  }
+
+  .nav-icon {
+    width:20px; height:20px;
+    opacity: 0.7;
+    flex-shrink:0;
+  }
+
+  /* Camera list */
+  .camera-card {
+    margin: 0 16px 8px;
+    padding: 12px;
+    border-radius: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    cursor:pointer;
+    transition: all 0.15s;
+  }
+
+  .camera-card:hover { border-color: var(--accent2); }
+  .camera-card.alert { border-color: var(--danger); background: var(--danger-dim); }
+
+  .camera-header {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:6px;
+  }
+
+  .camera-name {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+  }
+
+  .camera-badge {
+    font-family: var(--mono);
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: rgba(52,199,89,0.15);
+    color: var(--success);
+    border: 1px solid rgba(52,199,89,0.3);
+  }
+
+  .camera-badge.offline {
+    background: rgba(107,138,170,0.1);
+    color: var(--text-dim);
+    border-color: var(--border);
+  }
+
+  .camera-meta {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  /* ── Main Content ───────────────────────────────── */
+  .main {
+    overflow-y: auto;
+    padding: 24px;
+    display:flex;
+    flex-direction:column;
+    gap:24px;
+  }
+
+  .main::-webkit-scrollbar { width: 4px; }
+  .main::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+
+  /* Video grid */
+  .video-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  .video-feed {
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    overflow:hidden;
+    background: #000;
+    aspect-ratio: 16/9;
+    position:relative;
+    cursor:pointer;
+    transition: border-color 0.2s;
+  }
+
+  .video-feed:hover { border-color: var(--accent2); }
+  .video-feed.danger { border-color: var(--danger); animation: danger-flash 0.5s ease-in-out infinite alternate; }
+
+  @keyframes danger-flash {
+    from { border-color: var(--danger); box-shadow: 0 0 0 rgba(255,45,85,0); }
+    to   { border-color: #ff6688; box-shadow: 0 0 20px rgba(255,45,85,0.4); }
+  }
+
+  .video-placeholder {
+    position: absolute;
+    inset:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+  }
+
+  .video-noise {
+    position:absolute;
+    inset:0;
+    background: 
+      repeating-linear-gradient(
+        90deg,
+        transparent, transparent 2px,
+        rgba(255,255,255,0.02) 2px, rgba(255,255,255,0.02) 4px
+      ),
+      repeating-linear-gradient(
+        0deg,
+        transparent, transparent 2px,
+        rgba(255,255,255,0.01) 2px, rgba(255,255,255,0.01) 4px
+      );
+  }
+
+  .video-overlay {
+    position:absolute;
+    bottom:0; left:0; right:0;
+    padding: 10px 12px;
+    background: linear-gradient(transparent, rgba(0,0,0,0.8));
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+
+  .video-cam-id {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.7);
+  }
+
+  .video-live-badge {
+    font-family: var(--mono);
+    font-size: 9px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    background: var(--danger);
+    color: #fff;
+    letter-spacing: 0.1em;
+  }
+
+  .detection-overlay {
+    position:absolute;
+    top:10px; left:10px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: rgba(255,45,85,0.9);
+    backdrop-filter:blur(8px);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color:#fff;
+    display:none;
+    align-items:center;
+    gap:6px;
+  }
+
+  .detection-overlay.visible { display:flex; }
+
+  /* Stats row */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+
+  .stat-card {
+    padding: 20px;
+    border-radius: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    position:relative;
+    overflow:hidden;
+  }
+
+  .stat-card::before {
+    content:'';
+    position:absolute;
+    top:0; left:0; right:0;
+    height:2px;
+  }
+
+  .stat-card.cyan::before { background: var(--accent); }
+  .stat-card.red::before { background: var(--danger); }
+  .stat-card.orange::before { background: var(--warning); }
+  .stat-card.green::before { background: var(--success); }
+
+  .stat-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+    text-transform:uppercase;
+    margin-bottom: 10px;
+  }
+
+  .stat-value {
+    font-family: var(--mono);
+    font-size: 32px;
+    font-weight: 700;
+    line-height:1;
+  }
+
+  .stat-card.cyan .stat-value { color: var(--accent); }
+  .stat-card.red .stat-value { color: var(--danger); }
+  .stat-card.orange .stat-value { color: var(--warning); }
+  .stat-card.green .stat-value { color: var(--success); }
+
+  .stat-sub {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 6px;
+  }
+
+  /* Alert feed */
+  .alert-feed {
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    overflow:hidden;
+  }
+
+  .panel-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background: var(--surface2);
+  }
+
+  .panel-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text);
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+
+  .panel-badge {
+    padding: 2px 8px;
+    border-radius: 100px;
+    background: var(--danger);
+    color:#fff;
+    font-size: 10px;
+    font-family: var(--mono);
+  }
+
+  .alert-list { max-height: 280px; overflow-y:auto; }
+  .alert-list::-webkit-scrollbar { width: 4px; }
+  .alert-list::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+
+  .alert-item {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display:flex;
+    gap:14px;
+    align-items:flex-start;
+    transition: background 0.15s;
+    animation: slide-in 0.3s ease;
+  }
+
+  @keyframes slide-in {
+    from { transform: translateX(-10px); opacity:0; }
+    to   { transform: translateX(0); opacity:1; }
+  }
+
+  .alert-item:hover { background: var(--surface2); }
+
+  .alert-severity {
+    width: 8px; flex-shrink:0;
+    height:8px;
+    border-radius:50%;
+    margin-top:5px;
+  }
+
+  .sev-critical { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+  .sev-high { background: var(--warning); }
+  .sev-medium { background: #ffd60a; }
+  .sev-low { background: var(--success); }
+
+  .alert-content { flex:1; min-width:0; }
+
+  .alert-title {
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 3px;
+  }
+
+  .alert-meta {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    display:flex;
+    gap:12px;
+  }
+
+  .alert-conf {
+    color: var(--accent);
+  }
+
+  .alert-resolve-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor:pointer;
+    transition: all 0.15s;
+    white-space:nowrap;
+  }
+
+  .alert-resolve-btn:hover {
+    border-color: var(--success);
+    color: var(--success);
+  }
+
+  /* ── Right Panel ────────────────────────────────── */
+  .right-panel {
+    border-left: 1px solid var(--border);
+    overflow-y:auto;
+    display:flex;
+    flex-direction:column;
+    background: var(--surface);
+  }
+
+  .right-panel::-webkit-scrollbar { width: 4px; }
+  .right-panel::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+
+  .chat-container {
+    display:flex;
+    flex-direction:column;
+    height:100%;
+  }
+
+  .chat-messages {
+    flex:1;
+    overflow-y:auto;
+    padding:16px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+
+  .chat-messages::-webkit-scrollbar { width: 3px; }
+  .chat-messages::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+
+  .chat-bubble {
+    max-width: 85%;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 13px;
+    line-height:1.5;
+    animation: bubble-in 0.2s ease;
+  }
+
+  @keyframes bubble-in {
+    from { transform: scale(0.95); opacity: 0.5; }
+    to   { transform: scale(1); opacity: 1; }
+  }
+
+  .chat-bubble.user {
+    align-self: flex-end;
+    background: rgba(0,229,255,0.15);
+    border: 1px solid rgba(0,229,255,0.25);
+    color: var(--text);
+    border-radius: 12px 12px 2px 12px;
+  }
+
+  .chat-bubble.assistant {
+    align-self: flex-start;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 12px 12px 12px 2px;
+  }
+
+  .chat-bubble.system {
+    align-self: center;
+    background: var(--danger-dim);
+    border: 1px solid rgba(255,45,85,0.3);
+    color: var(--danger);
+    font-family: var(--mono);
+    font-size: 11px;
+    text-align:center;
+    border-radius: 6px;
+    max-width:100%;
+  }
+
+  .chat-input-row {
+    padding:16px;
+    border-top: 1px solid var(--border);
+    display:flex;
+    gap:8px;
+    background: var(--surface2);
+  }
+
+  .chat-input {
+    flex:1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    outline:none;
+    transition: border-color 0.15s;
+    resize:none;
+    height:40px;
+  }
+
+  .chat-input:focus { border-color: var(--accent2); }
+
+  .chat-send-btn {
+    width:40px; height:40px;
+    background: var(--accent);
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transition: all 0.15s;
+    flex-shrink:0;
+  }
+
+  .chat-send-btn:hover { background: var(--accent2); transform: scale(1.05); }
+
+  /* Patient card */
+  .patient-card {
+    margin: 16px;
+    padding: 16px;
+    border-radius: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+  }
+
+  .patient-name {
+    font-weight:600;
+    font-size:15px;
+    margin-bottom:4px;
+  }
+
+  .patient-meta {
+    font-size:12px;
+    color: var(--text-dim);
+    margin-bottom:12px;
+  }
+
+  .tag-list {
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+  }
+
+  .tag {
+    padding: 3px 10px;
+    border-radius: 100px;
+    font-size:11px;
+    background: rgba(0,229,255,0.08);
+    border: 1px solid rgba(0,229,255,0.2);
+    color: var(--accent);
+  }
+
+  .tag.warning {
+    background: rgba(255,159,10,0.08);
+    border-color: rgba(255,159,10,0.2);
+    color: var(--warning);
+  }
+
+  /* Emergency modal */
+  .emergency-modal {
+    position:fixed;
+    inset:0;
+    z-index:1000;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter:blur(8px);
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 0.2s;
+  }
+
+  .emergency-modal.visible {
+    opacity:1;
+    pointer-events:auto;
+  }
+
+  .emergency-card {
+    width:480px;
+    border-radius:16px;
+    background: var(--surface);
+    border: 2px solid var(--danger);
+    overflow:hidden;
+    box-shadow: 0 0 60px rgba(255,45,85,0.4);
+    transform: scale(0.9);
+    transition: transform 0.2s;
+  }
+
+  .emergency-modal.visible .emergency-card { transform: scale(1); }
+
+  .emergency-header {
+    padding:20px 24px;
+    background: var(--danger);
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+
+  .emergency-icon {
+    font-size:28px;
+    animation: shake 0.3s ease-in-out infinite;
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: rotate(-5deg); }
+    50% { transform: rotate(5deg); }
+  }
+
+  .emergency-title {
+    font-family: var(--mono);
+    font-size:16px;
+    font-weight:700;
+    letter-spacing:0.05em;
+    color:#fff;
+  }
+
+  .emergency-body {
+    padding:24px;
+  }
+
+  .emergency-detail {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+    margin-bottom:20px;
+  }
+
+  .detail-item label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+    display:block;
+    margin-bottom:4px;
+  }
+
+  .detail-item span {
+    font-size:14px;
+    font-weight:500;
+  }
+
+  .emergency-actions {
+    display:flex;
+    gap:10px;
+  }
+
+  .btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor:pointer;
+    border: none;
+    transition: all 0.15s;
+    font-family: var(--sans);
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: var(--bg);
+    flex:1;
+  }
+
+  .btn-primary:hover { background: var(--accent2); }
+
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .btn-secondary:hover { border-color: var(--text-dim); }
+
+  /* Empty state */
+  .empty-state {
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding:40px 20px;
+    color: var(--text-dim);
+    gap:8px;
+  }
+
+  .empty-icon { font-size:32px; opacity:0.4; }
+  .empty-text { font-size:13px; }
+
+  /* Tabs */
+  .tabs {
+    display:flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+
+  .tab {
+    padding: 12px 20px;
+    font-size:13px;
+    cursor:pointer;
+    border-bottom: 2px solid transparent;
+    color: var(--text-dim);
+    transition: all 0.15s;
+    white-space:nowrap;
+  }
+
+  .tab.active {
+    border-bottom-color: var(--accent);
+    color: var(--text);
+  }
+
+  .tab-content { display:none; }
+  .tab-content.active { display:block; }
+
+  /* Timeline */
+  .timeline {
+    padding: 16px 20px;
+  }
+
+  .tl-item {
+    display:flex;
+    gap:14px;
+    padding-bottom:20px;
+    position:relative;
+  }
+
+  .tl-item::before {
+    content:'';
+    position:absolute;
+    left:7px; top:18px; bottom:0;
+    width:1px;
+    background: var(--border);
+  }
+
+  .tl-item:last-child::before { display:none; }
+
+  .tl-dot {
+    width:16px; height:16px;
+    border-radius:50%;
+    flex-shrink:0;
+    margin-top:2px;
+    border: 2px solid;
+  }
+
+  .tl-dot.critical { background: var(--danger); border-color: var(--danger); box-shadow: 0 0 8px var(--danger); }
+  .tl-dot.high { background: var(--warning); border-color: var(--warning); }
+  .tl-dot.resolved { background: transparent; border-color: var(--success); }
+
+  .tl-body { flex:1; }
+  .tl-event { font-size:13px; font-weight:500; margin-bottom:3px; }
+  .tl-time { font-family: var(--mono); font-size:10px; color: var(--text-dim); }
+
+  /* Snapshot */
+  .snapshot-img {
+    width:100%; border-radius:8px;
+    margin-top:8px;
+    border: 1px solid var(--border);
+    opacity:0.7;
+  }
+
+  /* ── Responsive ─────────────────────────────────── */
+  @media (max-width: 1200px) {
+    .layout { grid-template-columns: 240px 1fr 280px; }
+    .stats-row { grid-template-columns: repeat(2,1fr); }
+  }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; grid-template-rows: auto; }
+    .sidebar { display:none; }
+    .right-panel { display:none; }
+    .video-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <path d="M12 2L13.5 9H21L15 13.5L17.5 21L12 16.5L6.5 21L9 13.5L3 9H10.5L12 2Z" fill="#080c12"/>
+      </svg>
+    </div>
+    <div>
+      <h1>MEDGUARD AI</h1>
+      <span>MEDICAL EMERGENCY DETECTION SYSTEM</span>
+    </div>
+  </div>
+  <div class="header-status">
+    <div class="status-pill" id="systemStatus">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">SYSTEM ACTIVE</span>
+    </div>
+    <div class="status-pill">
+      <span id="wsStatus">WS: CONNECTING</span>
+    </div>
+    <div class="status-pill">
+      <span id="timeDisplay">--:--:--</span>
+    </div>
+  </div>
+</header>
+
+<!-- Layout -->
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-label">Navigation</div>
+
+    <div class="nav-item active" onclick="switchTab('dashboard')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+        <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+      </svg>
+      Dashboard
+    </div>
+
+    <div class="nav-item" onclick="switchTab('alerts')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+      </svg>
+      Alert History
+    </div>
+
+    <div class="nav-item" onclick="switchTab('patients')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+      </svg>
+      Patients
+    </div>
+
+    <div class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M12 2v6m0 8v6M4.93 4.93l4.24 4.24m5.66 5.66 4.24 4.24M2 12h6m8 0h6M4.93 19.07l4.24-4.24m5.66-5.66 4.24-4.24"/>
+      </svg>
+      ML Models
+    </div>
+
+    <div style="padding:16px 0">
+      <div class="sidebar-label">Live Cameras</div>
+      <div id="cameraList"></div>
+    </div>
+
+    <div style="padding:16px 0">
+      <div class="sidebar-label">Detection Classes</div>
+      <div id="classLegend" style="padding: 0 20px;"></div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main">
+
+    <!-- Stats Row -->
+    <div class="stats-row">
+      <div class="stat-card cyan">
+        <div class="stat-label">Active Cameras</div>
+        <div class="stat-value" id="statCameras">0</div>
+        <div class="stat-sub">Live feeds monitored</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-label">Events Today</div>
+        <div class="stat-value" id="statEvents">0</div>
+        <div class="stat-sub">Medical emergencies</div>
+      </div>
+      <div class="stat-card orange">
+        <div class="stat-label">Alerts Sent</div>
+        <div class="stat-value" id="statAlerts">0</div>
+        <div class="stat-sub">Emergency notifications</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">Avg Confidence</div>
+        <div class="stat-value" id="statConf">--</div>
+        <div class="stat-sub">Detection accuracy</div>
+      </div>
+    </div>
+
+    <!-- Video Grid -->
+    <div>
+      <div class="panel-header" style="border-radius:12px 12px 0 0; border:1px solid var(--border); border-bottom:none;">
+        <div class="panel-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+          </svg>
+          LIVE FEEDS
+        </div>
+        <div style="display:flex;gap:8px">
+          <div class="status-pill" style="font-size:10px">
+            <div class="status-dot"></div>
+            <span id="inferenceStatus">INFERENCE ACTIVE</span>
+          </div>
+        </div>
+      </div>
+      <div class="video-grid" id="videoGrid" style="border:1px solid var(--border); border-radius:0 0 12px 12px; padding:12px; background:var(--surface);">
+      </div>
+    </div>
+
+    <!-- Alert Feed -->
+    <div class="alert-feed">
+      <div class="panel-header">
+        <div class="panel-title">
+          ⚡ DETECTION EVENTS
+          <span class="panel-badge" id="alertBadge">0</span>
+        </div>
+        <button class="btn btn-secondary" onclick="clearAlerts()" style="font-size:11px; padding:5px 12px">Clear All</button>
+      </div>
+      <div class="alert-list" id="alertList">
+        <div class="empty-state">
+          <div class="empty-icon">🛡️</div>
+          <div class="empty-text">No events detected — system monitoring</div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Right Panel — Chat + Patient -->
+  <aside class="right-panel">
+    <div class="tabs">
+      <div class="tab active" onclick="switchRightTab('chat')">AI Chat</div>
+      <div class="tab" onclick="switchRightTab('patient')">Patient</div>
+      <div class="tab" onclick="switchRightTab('timeline')">Timeline</div>
+    </div>
+
+    <!-- Chat Tab -->
+    <div class="tab-content active" id="tab-chat">
+      <div class="chat-container">
+        <div class="chat-messages" id="chatMessages">
+          <div class="chat-bubble assistant">
+            👋 Hello! I'm MedGuard AI Medical Assistant. I can answer questions about patient health, medications, conditions, and recent events. How can I help?
+          </div>
+        </div>
+        <div class="chat-input-row">
+          <textarea
+            class="chat-input"
+            id="chatInput"
+            placeholder="Ask about patient health..."
+            onkeydown="handleChatKey(event)"
+          ></textarea>
+          <button class="chat-send-btn" onclick="sendChat()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#080c12" stroke-width="2.5">
+              <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Patient Tab -->
+    <div class="tab-content" id="tab-patient">
+      <div id="patientPanel">
+        <div class="empty-state" style="margin-top:40px">
+          <div class="empty-icon">👤</div>
+          <div class="empty-text">Select a patient to view profile</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Timeline Tab -->
+    <div class="tab-content" id="tab-timeline">
+      <div class="timeline" id="timeline">
+        <div class="empty-state">
+          <div class="empty-icon">⏱️</div>
+          <div class="empty-text">No events in timeline</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<!-- Emergency Modal -->
+<div class="emergency-modal" id="emergencyModal">
+  <div class="emergency-card">
+    <div class="emergency-header">
+      <div class="emergency-icon">🚨</div>
+      <div>
+        <div class="emergency-title" id="modalTitle">CRITICAL MEDICAL EVENT</div>
+        <div style="font-size:12px; color:rgba(255,255,255,0.8); margin-top:2px" id="modalSub">
+          Emergency response agent activated
+        </div>
+      </div>
+    </div>
+    <div class="emergency-body">
+      <div class="emergency-detail">
+        <div class="detail-item">
+          <label>EVENT TYPE</label>
+          <span id="modalEventType">—</span>
+        </div>
+        <div class="detail-item">
+          <label>SEVERITY</label>
+          <span id="modalSeverity" style="color:var(--danger)">—</span>
+        </div>
+        <div class="detail-item">
+          <label>CAMERA</label>
+          <span id="modalCamera">—</span>
+        </div>
+        <div class="detail-item">
+          <label>CONFIDENCE</label>
+          <span id="modalConf" style="color:var(--accent)">—</span>
+        </div>
+      </div>
+      <div id="modalSnapshot"></div>
+      <div class="emergency-actions">
+        <button class="btn btn-primary" onclick="resolveEmergency()">✓ Mark Resolved</button>
+        <button class="btn btn-secondary" onclick="dismissModal()">Dismiss</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// MedGuard AI Dashboard — Frontend Logic
+// ═══════════════════════════════════════════════════════
+
+const API_URL = 'http://localhost:8000';
+const WS_URL = 'ws://localhost:8000/ws/events';
+const SESSION_ID = 'session_' + Math.random().toString(36).slice(2);
+
+let ws = null;
+let alerts = [];
+let stats = { cameras:0, events:0, alertsSent:0, totalConf:0, confCount:0 };
+let currentEventId = null;
+
+// ── Cameras ────────────────────────────────────────────
+
+const CAMERAS = [
+  { id: 'cam_0', name: 'CAM-01 / Webcam', type: 'Laptop Camera', fps: 15 },
+  { id: 'cam_1', name: 'CAM-02 / Entrance', type: 'CCTV', fps: 25 },
+  { id: 'cctv_0', name: 'CAM-03 / Corridor', type: 'IP Camera', fps: 20 },
+  { id: 'cam_3', name: 'CAM-04 / Dashcam', type: 'Car Camera', fps: 30 },
+];
+
+function initCameras() {
+  const list = document.getElementById('cameraList');
+  const grid = document.getElementById('videoGrid');
+
+  list.innerHTML = CAMERAS.map((c, i) => `
+    <div class="camera-card" id="cc_${c.id}" onclick="focusCamera('${c.id}')">
+      <div class="camera-header">
+        <span class="camera-name">${c.id.toUpperCase()}</span>
+        <span class="camera-badge ${i > 1 ? 'offline' : ''}">${i > 1 ? 'OFFLINE' : 'LIVE'}</span>
+      </div>
+      <div class="camera-meta">${c.name} · ${c.fps}fps</div>
+    </div>
+  `).join('');
+
+  grid.innerHTML = CAMERAS.slice(0,4).map(c => `
+    <div class="video-feed" id="vf_${c.id}" onclick="focusCamera('${c.id}')">
+      <div class="video-noise"></div>
+      <div class="video-placeholder">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(107,138,170,0.4)" stroke-width="1">
+          <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+        </svg>
+        <span style="font-family:var(--mono);font-size:10px;color:rgba(107,138,170,0.4)">FEED AVAILABLE</span>
+      </div>
+      <div class="detection-overlay" id="do_${c.id}">
+        <span style="width:6px;height:6px;border-radius:50%;background:#fff;display:inline-block"></span>
+        <span id="dt_${c.id}">—</span>
+      </div>
+      <div class="video-overlay">
+        <span class="video-cam-id">${c.id.toUpperCase()} · ${c.name}</span>
+        <span class="video-live-badge">●REC</span>
+      </div>
+    </div>
+  `).join('');
+
+  stats.cameras = 2;
+  updateStats();
+}
+
+// ── Class legend ───────────────────────────────────────
+
+function initLegend() {
+  const classes = [
+    { name:'Fall', color:'#ff2d55', icon:'⬇️' },
+    { name:'Seizure', color:'#ff9f0a', icon:'⚡' },
+    { name:'Cardiac', color:'#ff3b30', icon:'❤️' },
+    { name:'Unconscious', color:'#af52de', icon:'💤' },
+    { name:'Facial Distress', color:'#5856d6', icon:'😟' },
+    { name:'Abnormal', color:'#00e5ff', icon:'⚠️' },
+  ];
+
+  document.getElementById('classLegend').innerHTML = classes.map(c => `
+    <div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12px">
+      <span style="width:8px;height:8px;border-radius:50%;background:${c.color};flex-shrink:0;box-shadow:0 0 6px ${c.color}"></span>
+      <span>${c.icon} ${c.name}</span>
+    </div>
+  `).join('');
+}
+
+// ── WebSocket ──────────────────────────────────────────
+
+function connectWebSocket() {
+  try {
+    ws = new WebSocket(WS_URL);
+
+    ws.onopen = () => {
+      document.getElementById('wsStatus').textContent = 'WS: CONNECTED';
+      document.getElementById('statusDot').classList.remove('alert');
+      console.log('[WS] Connected to MedGuard API');
+    };
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === 'medical_event') {
+        handleMedicalEvent(data);
+      }
+    };
+
+    ws.onclose = () => {
+      document.getElementById('wsStatus').textContent = 'WS: RECONNECTING';
+      setTimeout(connectWebSocket, 3000);
+    };
+
+    ws.onerror = () => {
+      document.getElementById('wsStatus').textContent = 'WS: OFFLINE';
+    };
+  } catch(e) {
+    console.log('[WS] Running in demo mode (no backend)');
+    document.getElementById('wsStatus').textContent = 'WS: DEMO MODE';
+  }
+}
+
+// ── Event handling ─────────────────────────────────────
+
+const EVENT_ICONS = {
+  fall: '⬇️', seizure: '⚡', cardiac: '❤️',
+  unconscious: '💤', facial_distress: '😟',
+  abnormal_movement: '⚠️', unknown: '❓'
+};
+
+function handleMedicalEvent(data) {
+  stats.events++;
+  if (data.severity === 'high' || data.severity === 'critical') stats.alertsSent++;
+  stats.totalConf += data.confidence;
+  stats.confCount++;
+
+  updateStats();
+  addAlert(data);
+  markCameraAlert(data.camera_id, data.event_type);
+  addTimeline(data);
+
+  if (data.severity === 'critical' || data.severity === 'high') {
+    showEmergencyModal(data);
+  }
+}
+
+function addAlert(data) {
+  alerts.unshift(data);
+  const icon = EVENT_ICONS[data.event_type] || '⚠️';
+  const ts = new Date(data.timestamp * 1000).toLocaleTimeString();
+
+  const item = document.createElement('div');
+  item.className = 'alert-item';
+  item.id = `alert_${Date.now()}`;
+  item.innerHTML = `
+    <div class="alert-severity sev-${data.severity}"></div>
+    <div class="alert-content">
+      <div class="alert-title">${icon} ${data.event_type.replace('_',' ').toUpperCase()}</div>
+      <div class="alert-meta">
+        <span>${data.camera_id}</span>
+        <span class="alert-conf">${(data.confidence*100).toFixed(0)}% conf</span>
+        <span>${ts}</span>
+        <span style="text-transform:capitalize;color:${data.severity==='critical'?'var(--danger)':data.severity==='high'?'var(--warning)':'var(--success)'}">
+          ${data.severity}
+        </span>
+      </div>
+    </div>
+    <button class="alert-resolve-btn" onclick="resolveAlert(this)">Resolve</button>
+  `;
+
+  const list = document.getElementById('alertList');
+  if (list.querySelector('.empty-state')) list.innerHTML = '';
+  list.prepend(item);
+
+  document.getElementById('alertBadge').textContent = alerts.length;
+}
+
+function addTimeline(data) {
+  const icon = EVENT_ICONS[data.event_type] || '⚠️';
+  const ts = new Date(data.timestamp * 1000).toLocaleTimeString();
+  const tl = document.getElementById('timeline');
+  if (tl.querySelector('.empty-state')) tl.innerHTML = '';
+
+  const item = document.createElement('div');
+  item.className = 'tl-item';
+  item.innerHTML = `
+    <div class="tl-dot ${data.severity}"></div>
+    <div class="tl-body">
+      <div class="tl-event">${icon} ${data.event_type.replace('_',' ')}</div>
+      <div class="tl-time">${ts} · ${data.camera_id} · ${(data.confidence*100).toFixed(0)}%</div>
+    </div>
+  `;
+  tl.prepend(item);
+}
+
+function markCameraAlert(cameraId, eventType) {
+  const vf = document.getElementById('vf_' + cameraId);
+  const cc = document.getElementById('cc_' + cameraId);
+  const do_ = document.getElementById('do_' + cameraId);
+  const dt = document.getElementById('dt_' + cameraId);
+
+  if (vf) { vf.classList.add('danger'); setTimeout(()=>vf.classList.remove('danger'), 8000); }
+  if (cc) { cc.classList.add('alert'); setTimeout(()=>cc.classList.remove('alert'), 8000); }
+  if (do_ && dt) {
+    dt.textContent = eventType.toUpperCase();
+    do_.classList.add('visible');
+    setTimeout(()=>do_.classList.remove('visible'), 8000);
+  }
+}
+
+// ── Stats ──────────────────────────────────────────────
+
+function updateStats() {
+  document.getElementById('statCameras').textContent = stats.cameras;
+  document.getElementById('statEvents').textContent = stats.events;
+  document.getElementById('statAlerts').textContent = stats.alertsSent;
+  document.getElementById('statConf').textContent = stats.confCount > 0
+    ? (stats.totalConf / stats.confCount * 100).toFixed(0) + '%'
+    : '--';
+}
+
+// ── Emergency Modal ────────────────────────────────────
+
+function showEmergencyModal(data) {
+  document.getElementById('modalTitle').textContent =
+    `🚨 ${data.event_type.replace('_',' ').toUpperCase()} DETECTED`;
+  document.getElementById('modalEventType').textContent = data.event_type;
+  document.getElementById('modalSeverity').textContent = data.severity.toUpperCase();
+  document.getElementById('modalCamera').textContent = data.camera_id;
+  document.getElementById('modalConf').textContent = (data.confidence * 100).toFixed(0) + '%';
+
+  if (data.snapshot) {
+    document.getElementById('modalSnapshot').innerHTML =
+      `<img src="data:image/jpeg;base64,${data.snapshot}" class="snapshot-img" alt="snapshot">`;
+  }
+
+  document.getElementById('emergencyModal').classList.add('visible');
+  playAlertSound();
+}
+
+function resolveEmergency() {
+  document.getElementById('emergencyModal').classList.remove('visible');
+  if (currentEventId) {
+    fetch(`${API_URL}/api/detections/${currentEventId}/resolve`, { method: 'PATCH' });
+  }
+}
+
+function dismissModal() {
+  document.getElementById('emergencyModal').classList.remove('visible');
+}
+
+// ── Chat ───────────────────────────────────────────────
+
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const msg = input.value.trim();
+  if (!msg) return;
+
+  input.value = '';
+  appendChat('user', msg);
+
+  const typing = appendChat('assistant', '...');
+  typing.style.opacity = '0.5';
+
+  try {
+    const res = await fetch(`${API_URL}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: msg, session_id: SESSION_ID }),
+    });
+    const data = await res.json();
+    typing.remove();
+    appendChat('assistant', data.response || 'Unable to get response.');
+  } catch(e) {
+    typing.remove();
+    // Demo mode
+    const demos = {
+      'seizure': 'Seizure (epileptic attack) is characterised by sudden uncontrolled electrical disturbance in the brain. Key first aid: ensure the person is safe, time the seizure, do not restrain, place in recovery position after, and call emergency services if lasting >5 minutes.',
+      'fall': 'Falls can indicate cardiac events, hypoglycemia, or neurological episodes. Assess for head injury, check consciousness, do not move if spinal injury is suspected. Call emergency services immediately for severe falls.',
+      default: `Based on the monitoring data, I can see recent activity on the cameras. The AI detection system is actively monitoring for: falls, seizures, cardiac events, unconsciousness, and facial distress. Is there a specific patient or event you'd like to review?`
+    };
+    const key = Object.keys(demos).find(k => msg.toLowerCase().includes(k));
+    appendChat('assistant', demos[key] || demos.default);
+  }
+}
+
+function appendChat(role, content) {
+  const el = document.createElement('div');
+  el.className = `chat-bubble ${role}`;
+  el.textContent = content;
+  const msgs = document.getElementById('chatMessages');
+  msgs.appendChild(el);
+  msgs.scrollTop = msgs.scrollHeight;
+  return el;
+}
+
+function handleChatKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendChat();
+  }
+}
+
+// ── Tab navigation ─────────────────────────────────────
+
+function switchRightTab(name) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    const tabs = ['chat', 'patient', 'timeline'];
+    t.classList.toggle('active', tabs[i] === name);
+  });
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById(`tab-${name}`).classList.add('active');
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+}
+
+function focusCamera(id) {
+  console.log('Focusing camera:', id);
+}
+
+function resolveAlert(btn) {
+  btn.closest('.alert-item').style.opacity = '0.4';
+  btn.textContent = '✓ Resolved';
+  btn.style.color = 'var(--success)';
+  btn.style.borderColor = 'var(--success)';
+  btn.disabled = true;
+}
+
+function clearAlerts() {
+  document.getElementById('alertList').innerHTML = `
+    <div class="empty-state">
+      <div class="empty-icon">🛡️</div>
+      <div class="empty-text">No events detected — system monitoring</div>
+    </div>`;
+  document.getElementById('alertBadge').textContent = '0';
+  alerts = [];
+}
+
+// ── Demo mode simulation ──────────────────────────────
+
+function runDemo() {
+  const events = [
+    { type:'fall', cam:'cam_0', sev:'critical', conf:0.92 },
+    { type:'seizure', cam:'cam_1', sev:'high', conf:0.87 },
+    { type:'cardiac', cam:'cam_0', sev:'critical', conf:0.78 },
+    { type:'facial_distress', cam:'cam_1', sev:'medium', conf:0.65 },
+    { type:'unconscious', cam:'cam_0', sev:'critical', conf:0.95 },
+  ];
+
+  let i = 0;
+  const fire = () => {
+    const e = events[i % events.length];
+    handleMedicalEvent({
+      type: 'medical_event',
+      event_type: e.type,
+      severity: e.sev,
+      confidence: e.conf,
+      camera_id: e.cam,
+      timestamp: Date.now() / 1000,
+      metadata: {},
+      snapshot: null,
+    });
+    i++;
+    setTimeout(fire, 4000 + Math.random() * 8000);
+  };
+
+  setTimeout(fire, 3000);
+}
+
+// ── Alert sound ───────────────────────────────────────
+
+function playAlertSound() {
+  try {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.3);
+    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.3);
+  } catch(e) {}
+}
+
+// ── Clock ─────────────────────────────────────────────
+
+function startClock() {
+  const update = () => {
+    document.getElementById('timeDisplay').textContent =
+      new Date().toLocaleTimeString('en-US', { hour12:false });
+  };
+  update();
+  setInterval(update, 1000);
+}
+
+// ── Init ──────────────────────────────────────────────
+
+window.addEventListener('load', () => {
+  initCameras();
+  initLegend();
+  connectWebSocket();
+  startClock();
+  runDemo(); // remove in production
+});
+</script>
+</body>
+</html>

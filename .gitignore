@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+venv/
+.venv/
+
+# Environment — NEVER commit secrets
+.env
+
+# Database
+data/
+*.db
+*.sqlite3
+
+# ML Models
+models/
+*.pt
+*.pth
+*.onnx
+
+# Vector store
+chroma_db/
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# HuggingFace cache
+.cache/
+
+# Credentials
+firebase-credentials.json
+*.pem
+*.key

@@ -1,0 +1,13 @@
+# Stage 3 — LangChain + RAG + Vector DB (~3 min)
+# Run: pip install -r requirements-ai.txt
+langchain>=0.2.1
+langchain-community>=0.2.1
+langchain-core>=0.2.1
+langgraph>=0.1.1
+langchain-openai>=0.1.8
+langchain-ollama>=0.1.1
+faiss-cpu>=1.8.0
+chromadb>=0.5.0
+sentence-transformers>=3.0.1
+pypdf>=4.2.0
+mlflow>=2.13.0

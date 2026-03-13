@@ -1,0 +1,29 @@
+# deployment/Dockerfile.api
+FROM python:3.11-slim
+
+# System deps for OpenCV + MediaPipe
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libglib2.0-0 libsm6 libxrender1 libxext6 libgl1 \
+    ffmpeg libavcodec-dev libavformat-dev libswscale-dev \
+    gcc g++ && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install Python deps
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy source
+COPY backend/ ./backend/
+COPY .env.example ./.env
+
+# Create directories
+RUN mkdir -p /app/models /app/chroma_db /app/snapshots
+
+# Download YOLO model weights at build time
+RUN python -c "from ultralytics import YOLO; YOLO('yolov8n-pose.pt')" || true
+
+EXPOSE 8000
+
+CMD ["python", "-m", "backend.api.main"]
