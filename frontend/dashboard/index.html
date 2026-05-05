@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>MedGuard AI — Emergency Detection Dashboard</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
@@ -282,6 +285,25 @@
 
   .video-feed:hover { border-color: var(--accent2); }
   .video-feed.danger { border-color: var(--danger); animation: danger-flash 0.5s ease-in-out infinite alternate; }
+
+  .video-stream {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: #000;
+    display: none;
+  }
+
+  .video-feed.live .video-stream { display: block; }
+  .video-feed.live .video-placeholder,
+  .video-feed.live .video-noise { display: none; }
+
+  .video-feed.offline .video-live-badge {
+    background: rgba(107,138,170,0.15);
+    color: var(--text-dim);
+  }
 
   @keyframes danger-flash {
     from { border-color: var(--danger); box-shadow: 0 0 0 rgba(255,45,85,0); }
@@ -1126,13 +1148,20 @@
   </div>
 </div>
 
-<script>
+<script type="application/x-medguard-legacy-disabled">
 // ═══════════════════════════════════════════════════════
 // MedGuard AI Dashboard — Frontend Logic
 // ═══════════════════════════════════════════════════════
 
-const API_URL = 'http://localhost:8000';
-const WS_URL = 'ws://localhost:8000/ws/events';
+const URL_PARAMS = new URLSearchParams(window.location.search);
+const PAGE_HOST = window.location.hostname || '127.0.0.1';
+const API_HOST = URL_PARAMS.get('apiHost')
+  || (PAGE_HOST === 'localhost' ? '127.0.0.1' : PAGE_HOST);
+const API_PORT = URL_PARAMS.get('apiPort') || '8000';
+const API_PROTOCOL = window.location.protocol === 'https:' ? 'https:' : 'http:';
+const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const API_URL = `${API_PROTOCOL}//${API_HOST}:${API_PORT}`;
+const WS_URL = `${WS_PROTOCOL}//${API_HOST}:${API_PORT}/ws/events`;
 const SESSION_ID = 'session_' + Math.random().toString(36).slice(2);
 
 let ws = null;
@@ -1520,14 +1549,747 @@ function startClock() {
 }
 
 // ── Init ──────────────────────────────────────────────
+</script>
+<script>
+(function () {
+  const MG_STATE = window.__medguardState || (window.__medguardState = {
+    health: {},
+    seenEvents: new Set(),
+    maxAlerts: 50,
+    streamRetryMs: 5000,
+    healthPollMs: 10000,
+    wsPingMs: 20000,
+    wsConnectTimeoutMs: 4000,
+    detectionPollMs: 3000,
+    snapshotIntervalMs: 1200,
+    streamWatchdogMs: 2500,
+    wsReconnectTimer: null,
+    wsHeartbeatTimer: null,
+    wsConnectTimer: null,
+    healthPollTimer: null,
+    detectionPollTimer: null,
+    snapshotTimers: {},
+    streamWatchdogs: {},
+  });
 
-window.addEventListener('load', () => {
-  initCameras();
-  initLegend();
-  connectWebSocket();
-  startClock();
-  runDemo(); // remove in production
-});
+  function mgHumanizeEventType(eventType) {
+    return String(eventType || 'unknown').replace(/_/g, ' ');
+  }
+
+  function mgNormalizeTimestamp(value) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value > 1e12 ? value / 1000 : value;
+    }
+
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? Date.now() / 1000 : parsed / 1000;
+  }
+
+  function mgEventKey(data) {
+    if (data.id) {
+      return `id:${data.id}`;
+    }
+
+    return `${data.camera_id || 'unknown'}:${data.event_type || 'unknown'}:${mgNormalizeTimestamp(data.timestamp).toFixed(3)}`;
+  }
+
+  function mgFormatTime(timestamp) {
+    return new Date(timestamp * 1000).toLocaleTimeString();
+  }
+
+  function mgStreamUrl(cameraId) {
+    return `${API_URL}/api/camera/${encodeURIComponent(cameraId)}/stream`;
+  }
+
+  function mgSnapshotUrl(cameraId) {
+    return `${API_URL}/api/camera/${encodeURIComponent(cameraId)}/snapshot`;
+  }
+
+  function mgClearTransportTimers(cameraId) {
+    if (MG_STATE.snapshotTimers[cameraId]) {
+      clearTimeout(MG_STATE.snapshotTimers[cameraId]);
+      delete MG_STATE.snapshotTimers[cameraId];
+    }
+
+    if (MG_STATE.streamWatchdogs[cameraId]) {
+      clearTimeout(MG_STATE.streamWatchdogs[cameraId]);
+      delete MG_STATE.streamWatchdogs[cameraId];
+    }
+  }
+
+  function mgShowLiveFeed(feed, stream, placeholderWrap, noise) {
+    if (feed) {
+      feed.classList.add('live');
+      feed.classList.remove('offline');
+    }
+    if (stream) {
+      stream.style.display = 'block';
+      stream.style.opacity = '1';
+    }
+    if (placeholderWrap) {
+      placeholderWrap.style.display = 'none';
+    }
+    if (noise) {
+      noise.style.display = 'none';
+    }
+  }
+
+  function mgShowOfflineFeed(feed, stream, placeholderWrap, noise) {
+    if (feed) {
+      feed.classList.remove('live');
+      feed.classList.add('offline');
+    }
+    if (stream) {
+      stream.style.display = 'none';
+      stream.style.opacity = '0';
+    }
+    if (placeholderWrap) {
+      placeholderWrap.style.display = 'flex';
+    }
+    if (noise) {
+      noise.style.display = 'block';
+    }
+  }
+
+  function mgRefreshSnapshot(cameraId) {
+    if (!MG_STATE.health[cameraId]?.running) {
+      mgClearTransportTimers(cameraId);
+      return;
+    }
+
+    const stream = document.getElementById(`img_${cameraId}`);
+    if (!stream || stream.dataset.streamMode !== 'snapshot') {
+      return;
+    }
+
+    stream.src = `${mgSnapshotUrl(cameraId)}?ts=${Date.now()}`;
+  }
+
+  function mgScheduleSnapshotRefresh(cameraId, delay = MG_STATE.snapshotIntervalMs) {
+    if (!MG_STATE.health[cameraId]?.running) {
+      mgClearTransportTimers(cameraId);
+      return;
+    }
+
+    if (MG_STATE.snapshotTimers[cameraId]) {
+      clearTimeout(MG_STATE.snapshotTimers[cameraId]);
+    }
+
+    MG_STATE.snapshotTimers[cameraId] = window.setTimeout(() => {
+      mgRefreshSnapshot(cameraId);
+    }, delay);
+  }
+
+  function mgStartSnapshotFallback(cameraId) {
+    if (!MG_STATE.health[cameraId]?.running) {
+      return;
+    }
+
+    const feed = document.getElementById(`vf_${cameraId}`);
+    const stream = document.getElementById(`img_${cameraId}`);
+    const placeholder = document.getElementById(`vp_${cameraId}`);
+    const placeholderWrap = placeholder ? placeholder.parentElement : null;
+    const noise = feed ? feed.querySelector('.video-noise') : null;
+    if (!feed || !stream) {
+      return;
+    }
+
+    mgClearTransportTimers(cameraId);
+
+    stream.dataset.streamAttached = 'true';
+    stream.dataset.streamMode = 'snapshot';
+    mgShowLiveFeed(feed, stream, placeholderWrap, noise);
+    if (placeholder) {
+      placeholder.textContent = 'LIVE SNAPSHOT';
+    }
+
+    mgRefreshSnapshot(cameraId);
+  }
+
+  function mgLiveCount() {
+    return CAMERAS.filter((camera) => Boolean(MG_STATE.health[camera.id]?.running)).length;
+  }
+
+  function mgSetSystemStatus(text, isAlert) {
+    document.getElementById('statusText').textContent = text;
+    document.getElementById('statusDot').classList.toggle('alert', Boolean(isAlert));
+  }
+
+  function mgEnsureCameraCatalog() {
+    let changed = false;
+
+    Object.keys(MG_STATE.health).forEach((cameraId) => {
+      if (!CAMERAS.some((camera) => camera.id === cameraId)) {
+        CAMERAS.push({
+          id: cameraId,
+          name: `CAM / ${cameraId}`,
+          type: 'Camera Feed',
+          fps: Math.round(MG_STATE.health[cameraId]?.fps || 15),
+        });
+        changed = true;
+      }
+    });
+
+    return changed;
+  }
+
+  function initCameras() {
+    const list = document.getElementById('cameraList');
+    const grid = document.getElementById('videoGrid');
+
+    list.innerHTML = CAMERAS.map((camera) => `
+      <div class="camera-card" id="cc_${camera.id}" onclick="focusCamera('${camera.id}')">
+        <div class="camera-header">
+          <span class="camera-name">${camera.id.toUpperCase()}</span>
+          <span class="camera-badge offline" id="cb_${camera.id}">OFFLINE</span>
+        </div>
+        <div class="camera-meta" id="cm_${camera.id}">${camera.name} · -- fps</div>
+      </div>
+    `).join('');
+
+    grid.innerHTML = CAMERAS.slice(0, 4).map((camera) => `
+      <div class="video-feed offline" id="vf_${camera.id}" onclick="focusCamera('${camera.id}')">
+        <img class="video-stream" id="img_${camera.id}" alt="${camera.name} live stream">
+        <div class="video-noise"></div>
+        <div class="video-placeholder">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(107,138,170,0.4)" stroke-width="1">
+            <polygon points="23 7 16 12 23 17 23 7"></polygon>
+            <rect x="1" y="5" width="15" height="14" rx="2"></rect>
+          </svg>
+          <span id="vp_${camera.id}" style="font-family:var(--mono);font-size:10px;color:rgba(107,138,170,0.55)">STREAM OFFLINE</span>
+        </div>
+        <div class="detection-overlay" id="do_${camera.id}">
+          <span style="width:6px;height:6px;border-radius:50%;background:#fff;display:inline-block"></span>
+          <span id="dt_${camera.id}">—</span>
+        </div>
+        <div class="video-overlay">
+          <span class="video-cam-id">${camera.id.toUpperCase()} · ${camera.name}</span>
+          <span class="video-live-badge" id="vlb_${camera.id}">OFFLINE</span>
+        </div>
+      </div>
+    `).join('');
+
+    mgUpdateCameraStatus();
+  }
+
+  function mgAttachStream(cameraId) {
+    if (!MG_STATE.health[cameraId]?.running) {
+      return;
+    }
+
+    const feed = document.getElementById(`vf_${cameraId}`);
+    const stream = document.getElementById(`img_${cameraId}`);
+    const placeholder = document.getElementById(`vp_${cameraId}`);
+    const placeholderWrap = placeholder ? placeholder.parentElement : null;
+    const noise = feed ? feed.querySelector('.video-noise') : null;
+    if (!feed || !stream) {
+      return;
+    }
+
+    if (stream.dataset.streamAttached === 'true') {
+      if (stream.dataset.streamMode === 'snapshot' || stream.getAttribute('src')) {
+        mgShowLiveFeed(feed, stream, placeholderWrap, noise);
+      }
+      return;
+    }
+
+    stream.onload = () => {
+      mgShowLiveFeed(feed, stream, placeholderWrap, noise);
+      if (stream.dataset.streamMode === 'snapshot') {
+        if (placeholder) {
+          placeholder.textContent = 'LIVE SNAPSHOT';
+        }
+        mgScheduleSnapshotRefresh(cameraId);
+        return;
+      }
+      if (MG_STATE.streamWatchdogs[cameraId]) {
+        clearTimeout(MG_STATE.streamWatchdogs[cameraId]);
+        delete MG_STATE.streamWatchdogs[cameraId];
+      }
+      if (placeholder) {
+        placeholder.textContent = 'LIVE STREAM';
+      }
+    };
+
+    stream.onerror = () => {
+      if (stream.dataset.streamMode === 'snapshot') {
+        if (placeholder) {
+          placeholder.textContent = 'RETRYING SNAPSHOT';
+        }
+        mgScheduleSnapshotRefresh(cameraId, MG_STATE.streamRetryMs);
+        return;
+      }
+
+      stream.dataset.streamAttached = 'false';
+      stream.dataset.streamMode = 'mjpeg';
+      mgShowOfflineFeed(feed, stream, placeholderWrap, noise);
+      if (placeholder) {
+        placeholder.textContent = 'SWITCHING TO SNAPSHOT';
+      }
+      mgStartSnapshotFallback(cameraId);
+    };
+
+    mgClearTransportTimers(cameraId);
+    stream.dataset.streamAttached = 'true';
+    stream.dataset.streamMode = 'mjpeg';
+    mgShowLiveFeed(feed, stream, placeholderWrap, noise);
+    if (placeholder) {
+      placeholder.textContent = 'LIVE STREAM';
+    }
+    MG_STATE.streamWatchdogs[cameraId] = window.setTimeout(() => {
+      if (MG_STATE.health[cameraId]?.running && stream.dataset.streamAttached === 'true') {
+        mgStartSnapshotFallback(cameraId);
+      }
+    }, MG_STATE.streamWatchdogMs);
+    stream.src = `${mgStreamUrl(cameraId)}?ts=${Date.now()}`;
+  }
+
+  function mgUpdateCameraStatus() {
+    const liveCount = mgLiveCount();
+    stats.cameras = liveCount;
+    updateStats();
+
+    document.getElementById('inferenceStatus').textContent = liveCount > 0 ? 'INFERENCE ACTIVE' : 'INFERENCE IDLE';
+    mgSetSystemStatus(liveCount > 0 ? 'SYSTEM ACTIVE' : 'CAMERAS OFFLINE', liveCount === 0);
+
+    CAMERAS.forEach((camera) => {
+      const status = MG_STATE.health[camera.id] || {};
+      const isLive = Boolean(status.running);
+      const card = document.getElementById(`cc_${camera.id}`);
+      const badge = document.getElementById(`cb_${camera.id}`);
+      const meta = document.getElementById(`cm_${camera.id}`);
+      const feed = document.getElementById(`vf_${camera.id}`);
+      const liveBadge = document.getElementById(`vlb_${camera.id}`);
+      const placeholder = document.getElementById(`vp_${camera.id}`);
+      const placeholderWrap = placeholder ? placeholder.parentElement : null;
+      const stream = document.getElementById(`img_${camera.id}`);
+      const noise = feed ? feed.querySelector('.video-noise') : null;
+
+      if (card) {
+        card.classList.toggle('alert', false);
+      }
+
+      if (badge) {
+        badge.textContent = isLive ? 'LIVE' : 'OFFLINE';
+        badge.classList.toggle('offline', !isLive);
+      }
+
+      if (meta) {
+        const fps = Math.round(status.fps || camera.fps || 0);
+        const errors = status.errors ? ` · ${status.errors} err` : '';
+        meta.textContent = `${camera.name} · ${fps || '--'} fps${errors}`;
+      }
+
+      if (liveBadge) {
+        liveBadge.textContent = isLive ? 'LIVE' : 'OFFLINE';
+      }
+
+      if (!feed || !stream) {
+        return;
+      }
+
+      if (!isLive) {
+        mgClearTransportTimers(camera.id);
+        mgShowOfflineFeed(feed, stream, placeholderWrap, noise);
+        stream.removeAttribute('src');
+        stream.dataset.streamAttached = 'false';
+        stream.dataset.streamMode = 'offline';
+        if (placeholder) {
+          placeholder.textContent = 'STREAM OFFLINE';
+        }
+        return;
+      }
+
+      mgShowLiveFeed(feed, stream, placeholderWrap, noise);
+      if (placeholder && !stream.getAttribute('src')) {
+        placeholder.textContent = 'CONNECTING TO STREAM';
+      }
+      mgAttachStream(camera.id);
+    });
+  }
+
+  async function mgRefreshHealth() {
+    try {
+      const res = await fetch(`${API_URL}/health`, { cache: 'no-store' });
+      if (!res.ok) {
+        throw new Error(`health ${res.status}`);
+      }
+
+      const data = await res.json();
+      MG_STATE.health = data.cameras || {};
+
+      if (mgEnsureCameraCatalog()) {
+        initCameras();
+      }
+
+      mgUpdateCameraStatus();
+    } catch (error) {
+      MG_STATE.health = {};
+      mgUpdateCameraStatus();
+      mgSetSystemStatus('BACKEND OFFLINE', true);
+    }
+  }
+
+  function mgScheduleReconnect() {
+    if (MG_STATE.wsReconnectTimer) {
+      return;
+    }
+
+    MG_STATE.wsReconnectTimer = window.setTimeout(() => {
+      MG_STATE.wsReconnectTimer = null;
+      connectWebSocket();
+    }, 3000);
+  }
+
+  function mgClearWsConnectTimer() {
+    if (MG_STATE.wsConnectTimer) {
+      clearTimeout(MG_STATE.wsConnectTimer);
+      MG_STATE.wsConnectTimer = null;
+    }
+  }
+
+  async function mgPollDetections() {
+    try {
+      const res = await fetch(`${API_URL}/api/detections?limit=20`, { cache: 'no-store' });
+      if (!res.ok) {
+        throw new Error(`detections ${res.status}`);
+      }
+
+      const events = await res.json();
+      events
+        .filter((event) => !event.resolved)
+        .reverse()
+        .forEach((event) => handleMedicalEvent(event));
+    } catch (error) {
+      console.warn('Detection polling failed', error);
+    }
+  }
+
+  function mgStartDetectionPolling(statusText = 'WS: FALLBACK POLL') {
+    document.getElementById('wsStatus').textContent = statusText;
+    if (MG_STATE.detectionPollTimer) {
+      return;
+    }
+
+    mgPollDetections();
+    MG_STATE.detectionPollTimer = window.setInterval(mgPollDetections, MG_STATE.detectionPollMs);
+  }
+
+  function mgStopDetectionPolling() {
+    if (MG_STATE.detectionPollTimer) {
+      clearInterval(MG_STATE.detectionPollTimer);
+      MG_STATE.detectionPollTimer = null;
+    }
+  }
+
+  function connectWebSocket() {
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
+
+    document.getElementById('wsStatus').textContent = MG_STATE.detectionPollTimer
+      ? 'WS: FALLBACK POLL'
+      : 'WS: CONNECTING';
+
+    try {
+      ws = new WebSocket(WS_URL);
+    } catch (error) {
+      console.warn('WebSocket creation failed', error);
+      mgStartDetectionPolling('WS: FALLBACK POLL');
+      mgScheduleReconnect();
+      return;
+    }
+
+    mgClearWsConnectTimer();
+    MG_STATE.wsConnectTimer = window.setTimeout(() => {
+      if (ws && ws.readyState === WebSocket.CONNECTING) {
+        mgStartDetectionPolling('WS: FALLBACK POLL');
+        try {
+          ws.close();
+        } catch (error) {
+          console.warn('WebSocket close after timeout failed', error);
+        }
+        ws = null;
+        mgScheduleReconnect();
+      }
+    }, MG_STATE.wsConnectTimeoutMs);
+
+    ws.onopen = () => {
+      mgClearWsConnectTimer();
+      mgStopDetectionPolling();
+      document.getElementById('wsStatus').textContent = 'WS: CONNECTED';
+      if (MG_STATE.wsReconnectTimer) {
+        clearTimeout(MG_STATE.wsReconnectTimer);
+        MG_STATE.wsReconnectTimer = null;
+      }
+      if (MG_STATE.wsHeartbeatTimer) {
+        clearInterval(MG_STATE.wsHeartbeatTimer);
+      }
+      MG_STATE.wsHeartbeatTimer = window.setInterval(() => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          try {
+            ws.send('ping');
+          } catch (error) {
+            console.warn('WebSocket heartbeat failed', error);
+            mgStartDetectionPolling('WS: FALLBACK POLL');
+            try {
+              ws.close();
+            } catch (closeError) {
+              console.warn('WebSocket close after heartbeat failure failed', closeError);
+            }
+            ws = null;
+            mgScheduleReconnect();
+          }
+        }
+      }, MG_STATE.wsPingMs);
+    };
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === 'medical_event') {
+        handleMedicalEvent(data);
+      }
+    };
+
+    ws.onclose = () => {
+      mgClearWsConnectTimer();
+      ws = null;
+      if (MG_STATE.wsHeartbeatTimer) {
+        clearInterval(MG_STATE.wsHeartbeatTimer);
+        MG_STATE.wsHeartbeatTimer = null;
+      }
+      mgStartDetectionPolling('WS: FALLBACK POLL');
+      mgScheduleReconnect();
+    };
+
+    ws.onerror = (error) => {
+      console.warn('WebSocket error', error);
+      mgStartDetectionPolling('WS: FALLBACK POLL');
+    };
+  }
+
+  function handleMedicalEvent(rawData) {
+    const data = {
+      ...rawData,
+      camera_id: rawData.camera_id || 'unknown',
+      event_type: rawData.event_type || 'unknown',
+      severity: rawData.severity || 'medium',
+      confidence: Number(rawData.confidence || 0),
+      timestamp: mgNormalizeTimestamp(rawData.timestamp),
+      id: rawData.id || null,
+    };
+    const eventKey = mgEventKey(data);
+
+    if (MG_STATE.seenEvents.has(eventKey)) {
+      return;
+    }
+    MG_STATE.seenEvents.add(eventKey);
+
+    stats.events += 1;
+    if (data.severity === 'high' || data.severity === 'critical') {
+      stats.alertsSent += 1;
+    }
+    stats.totalConf += data.confidence;
+    stats.confCount += 1;
+    updateStats();
+
+    addAlert(data, eventKey);
+    addTimeline(data);
+    markCameraAlert(data.camera_id, data.event_type);
+
+    if (data.severity === 'high' || data.severity === 'critical') {
+      showEmergencyModal(data);
+    }
+  }
+
+  function addAlert(data, eventKey) {
+    alerts.unshift({ ...data, key: eventKey });
+    alerts = alerts.slice(0, MG_STATE.maxAlerts);
+
+    const icon = EVENT_ICONS[data.event_type] || EVENT_ICONS.unknown;
+    const item = document.createElement('div');
+    item.className = 'alert-item';
+    item.id = `alert_${eventKey.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+    item.innerHTML = `
+      <div class="alert-severity sev-${data.severity}"></div>
+      <div class="alert-content">
+        <div class="alert-title">${icon} ${mgHumanizeEventType(data.event_type).toUpperCase()}</div>
+        <div class="alert-meta">
+          <span>${data.camera_id}</span>
+          <span class="alert-conf">${(data.confidence * 100).toFixed(0)}% conf</span>
+          <span>${mgFormatTime(data.timestamp)}</span>
+          <span style="text-transform:capitalize;color:${data.severity === 'critical' ? 'var(--danger)' : data.severity === 'high' ? 'var(--warning)' : 'var(--success)'}">
+            ${data.severity}
+          </span>
+        </div>
+      </div>
+      <button class="alert-resolve-btn" data-event-id="${data.id || ''}" onclick="resolveAlert(this)">Resolve</button>
+    `;
+
+    const list = document.getElementById('alertList');
+    if (list.querySelector('.empty-state')) {
+      list.innerHTML = '';
+    }
+    list.prepend(item);
+
+    while (list.children.length > MG_STATE.maxAlerts) {
+      list.removeChild(list.lastChild);
+    }
+
+    document.getElementById('alertBadge').textContent = String(alerts.length);
+  }
+
+  function addTimeline(data) {
+    const icon = EVENT_ICONS[data.event_type] || EVENT_ICONS.unknown;
+    const timeline = document.getElementById('timeline');
+    if (timeline.querySelector('.empty-state')) {
+      timeline.innerHTML = '';
+    }
+
+    const item = document.createElement('div');
+    item.className = 'tl-item';
+    item.innerHTML = `
+      <div class="tl-dot ${data.severity}"></div>
+      <div class="tl-body">
+        <div class="tl-event">${icon} ${mgHumanizeEventType(data.event_type)}</div>
+        <div class="tl-time">${mgFormatTime(data.timestamp)} · ${data.camera_id} · ${(data.confidence * 100).toFixed(0)}%</div>
+      </div>
+    `;
+    timeline.prepend(item);
+  }
+
+  function showEmergencyModal(data) {
+    currentEventId = data.id || null;
+    document.getElementById('modalTitle').textContent = `🚨 ${mgHumanizeEventType(data.event_type).toUpperCase()} DETECTED`;
+    document.getElementById('modalEventType').textContent = mgHumanizeEventType(data.event_type);
+    document.getElementById('modalSeverity').textContent = data.severity.toUpperCase();
+    document.getElementById('modalCamera').textContent = data.camera_id;
+    document.getElementById('modalConf').textContent = `${(data.confidence * 100).toFixed(0)}%`;
+
+    if (data.snapshot) {
+      document.getElementById('modalSnapshot').innerHTML =
+        `<img src="data:image/jpeg;base64,${data.snapshot}" class="snapshot-img" alt="snapshot">`;
+    } else {
+      document.getElementById('modalSnapshot').innerHTML = '';
+    }
+
+    document.getElementById('emergencyModal').classList.add('visible');
+    playAlertSound();
+  }
+
+  async function resolveEmergency() {
+    document.getElementById('emergencyModal').classList.remove('visible');
+    if (currentEventId) {
+      try {
+        await fetch(`${API_URL}/api/detections/${currentEventId}/resolve`, { method: 'PATCH' });
+      } catch (error) {
+        console.warn('Failed to resolve event', error);
+      }
+    }
+    currentEventId = null;
+  }
+
+  function dismissModal() {
+    document.getElementById('emergencyModal').classList.remove('visible');
+    currentEventId = null;
+  }
+
+  function focusCamera(id) {
+    const feed = document.getElementById(`vf_${id}`);
+    if (feed) {
+      feed.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+
+  async function resolveAlert(btn) {
+    btn.closest('.alert-item').style.opacity = '0.4';
+    btn.textContent = '✓ Resolved';
+    btn.style.color = 'var(--success)';
+    btn.style.borderColor = 'var(--success)';
+    btn.disabled = true;
+
+    if (!btn.dataset.eventId) {
+      return;
+    }
+
+    try {
+      await fetch(`${API_URL}/api/detections/${btn.dataset.eventId}/resolve`, { method: 'PATCH' });
+    } catch (error) {
+      console.warn('Failed to resolve alert', error);
+    }
+  }
+
+  function clearAlerts() {
+    document.getElementById('alertList').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🛡️</div>
+        <div class="empty-text">No events detected — system monitoring</div>
+      </div>`;
+    document.getElementById('alertBadge').textContent = '0';
+    alerts = [];
+  }
+
+  function playAlertSound() {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) {
+        return;
+      }
+
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.3);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.3);
+    } catch (error) {
+      console.warn('Alert sound unavailable', error);
+    }
+  }
+
+  function mgBootDashboard() {
+    alerts = [];
+    stats = { cameras: 0, events: 0, alertsSent: 0, totalConf: 0, confCount: 0 };
+    currentEventId = null;
+    MG_STATE.seenEvents.clear();
+    updateStats();
+
+    if (typeof initLegend === 'function') {
+      initLegend();
+    }
+    initCameras();
+    if (typeof startClock === 'function') {
+      startClock();
+    }
+    mgRefreshHealth();
+    connectWebSocket();
+
+    if (MG_STATE.healthPollTimer) {
+      clearInterval(MG_STATE.healthPollTimer);
+    }
+    MG_STATE.healthPollTimer = window.setInterval(mgRefreshHealth, MG_STATE.healthPollMs);
+  }
+
+  window.initCameras = initCameras;
+  window.connectWebSocket = connectWebSocket;
+  window.handleMedicalEvent = handleMedicalEvent;
+  window.addAlert = addAlert;
+  window.addTimeline = addTimeline;
+  window.showEmergencyModal = showEmergencyModal;
+  window.resolveEmergency = resolveEmergency;
+  window.dismissModal = dismissModal;
+  window.focusCamera = focusCamera;
+  window.resolveAlert = resolveAlert;
+  window.clearAlerts = clearAlerts;
+  window.playAlertSound = playAlertSound;
+
+  window.addEventListener('load', mgBootDashboard);
+})();
 </script>
 </body>
 </html>

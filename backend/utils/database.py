@@ -18,13 +18,12 @@ from backend.utils.config import get_settings
 
 settings = get_settings()
 
-# Use SQLite as fallback if postgres not configured
 _db_url = settings.database_url
-if _db_url.startswith("postgresql"):
-    # Only use postgres if explicitly configured beyond the default
-    # Fall back to SQLite for easy local dev
-    _db_url = "sqlite+aiosqlite:///./data/medguard.db"
-    os.makedirs("./data", exist_ok=True)
+if _db_url.startswith("sqlite") and ":memory:" not in _db_url:
+    sqlite_path = _db_url.split("///", 1)[-1]
+    sqlite_dir = os.path.dirname(os.path.abspath(sqlite_path))
+    if sqlite_dir:
+        os.makedirs(sqlite_dir, exist_ok=True)
 
 engine = create_async_engine(
     _db_url,

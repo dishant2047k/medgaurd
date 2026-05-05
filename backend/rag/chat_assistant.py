@@ -13,7 +13,6 @@ import asyncio
 from typing import AsyncIterator, List, Optional
 
 from langchain_core.chat_history import InMemoryChatMessageHistory
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
@@ -25,6 +24,11 @@ from backend.utils.logger import get_logger
 
 logger = get_logger(__name__)
 settings = get_settings()
+
+try:
+    from langchain_huggingface import HuggingFaceEmbeddings
+except ImportError:
+    from langchain_community.embeddings import HuggingFaceEmbeddings
 
 MEDICAL_SYSTEM_PROMPT = """You are MedGuard AI — an intelligent medical assistant.
 You have access to the patient's medical history, conditions, medications, and past events.

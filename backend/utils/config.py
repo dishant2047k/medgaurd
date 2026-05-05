@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     # Database
-    database_url: str = "postgresql+asyncpg://medguard:medguard@localhost:5432/medguard"
+    database_url: str = "sqlite+aiosqlite:///./data/medguard.db"
     redis_url: str = "redis://localhost:6379/0"
 
     # Kafka
@@ -46,15 +46,18 @@ class Settings(BaseSettings):
         return sources
 
     # LLM
+    enable_chat_assistant: bool = False
     llm_provider: str = "ollama"
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3"
     groq_api_key: str = ""
     groq_model: str = "llama-3.3-70b-versatile"
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4o-mini"
 
     # Embeddings
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
-    vector_db: str = "chroma"
+    vector_db: str = "faiss"
     chroma_persist_dir: str = "./chroma_db"
 
     # Alerting

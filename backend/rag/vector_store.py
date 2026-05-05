@@ -31,7 +31,13 @@ class MedicalVectorStore:
             self._init_faiss()
 
     def _init_chroma(self):
-        from langchain_chroma import Chroma
+        try:
+            from langchain_chroma import Chroma
+        except ImportError as exc:
+            logger.warning("chroma_unavailable_falling_back_to_faiss", error=str(exc))
+            self._init_faiss()
+            return
+
         os.makedirs(settings.chroma_persist_dir, exist_ok=True)
         self._store = Chroma(
             collection_name="medical_knowledge",
